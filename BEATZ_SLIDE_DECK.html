@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Beatz - Sprint Presentation & Architecture Deck</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background-color: #09090b;
+      color: #fafafa;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+    .deck-container {
+      width: 1100px;
+      height: 640px;
+      background: #121212;
+      border: 1px solid #27272a;
+      border-radius: 16px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .slide {
+      display: none;
+      flex-direction: column;
+      height: 100%;
+      padding: 48px 56px;
+      animation: fadeIn 0.3s ease-in-out;
+    }
+    .slide.active {
+      display: flex;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .slide-header {
+      margin-bottom: 28px;
+    }
+    .badge {
+      display: inline-block;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      background: rgba(29, 185, 84, 0.15);
+      color: #1DB954;
+      margin-bottom: 8px;
+    }
+    h1 {
+      font-size: 38px;
+      font-weight: 800;
+      color: #ffffff;
+      line-height: 1.2;
+    }
+    h2 {
+      font-size: 26px;
+      font-weight: 700;
+      color: #ffffff;
+      margin-bottom: 8px;
+    }
+    p.desc {
+      color: #a1a1aa;
+      font-size: 15px;
+    }
+    .content-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      flex: 1;
+    }
+    .card {
+      background: #18181b;
+      border: 1px solid #27272a;
+      border-radius: 12px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+    }
+    .card.highlight {
+      border-color: #1DB954;
+      background: rgba(29, 185, 84, 0.04);
+    }
+    .card-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: #ffffff;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .pill {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+    .pill-be { background: #1e3a8a; color: #93c5fd; }
+    .pill-fe { background: #064e3b; color: #6ee7b7; }
+    ul {
+      list-style-type: none;
+      padding-left: 0;
+    }
+    li {
+      font-size: 14px;
+      color: #d4d4d8;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: flex-start;
+      line-height: 1.5;
+    }
+    li::before {
+      content: "•";
+      color: #1DB954;
+      font-weight: bold;
+      display: inline-block;
+      width: 1em;
+      margin-right: 4px;
+    }
+    .timeline-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      margin-top: 10px;
+    }
+    .timeline-table th {
+      background: #27272a;
+      color: #ffffff;
+      padding: 8px 12px;
+      text-align: left;
+    }
+    .timeline-table td {
+      border-bottom: 1px solid #27272a;
+      padding: 8px 12px;
+      color: #d4d4d8;
+    }
+    .footer-nav {
+      position: absolute;
+      bottom: 20px;
+      left: 56px;
+      right: 56px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-top: 1px solid #27272a;
+      padding-top: 14px;
+    }
+    .slide-counter {
+      font-size: 13px;
+      color: #71717a;
+    }
+    .nav-btn {
+      background: #27272a;
+      border: none;
+      color: #ffffff;
+      padding: 8px 18px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .nav-btn:hover {
+      background: #3f3f46;
+    }
+    .nav-btn.primary {
+      background: #1DB954;
+      color: #000000;
+    }
+    .nav-btn.primary:hover {
+      background: #1ed760;
+    }
+  </style>
+</head>
+<body>
+
+<div class="deck-container">
+  <!-- Slide 1: Cover -->
+  <div class="slide active" id="slide-1">
+    <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
+      <span class="badge">1-Week Sprint Kickoff</span>
+      <h1 style="font-size: 56px; margin: 16px 0 8px;">BEATZ</h1>
+      <p style="font-size: 20px; color: #a1a1aa; max-width: 600px; margin-bottom: 32px;">
+        A high-performance, focused web player and real-time queue orchestration engine for Spotify.
+      </p>
+      <div style="display: flex; gap: 16px;">
+        <span style="background: #18181b; border: 1px solid #27272a; padding: 10px 18px; border-radius: 8px; font-size: 14px; color: #93c5fd;">
+          <strong>Backend & APIs:</strong> You
+        </span>
+        <span style="background: #18181b; border: 1px solid #27272a; padding: 10px 18px; border-radius: 8px; font-size: 14px; color: #6ee7b7;">
+          <strong>Frontend & Design:</strong> Partner
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 2: Scope & Product Vision -->
+  <div class="slide" id="slide-2">
+    <div class="slide-header">
+      <span class="badge">Scope Commitment</span>
+      <h2>What We Are Building (And What We Aren't)</h2>
+      <p class="desc">A laser-focused slice designed to deliver maximum standalone fidelity in 7 days.</p>
+    </div>
+    <div class="content-grid">
+      <div class="card highlight">
+        <div class="card-title">✅ Strictly In-Scope</div>
+        <ul>
+          <li><strong>Real-Time Audio Player:</strong> Play/pause, track seek bar, volume scrubber, previous/next track.</li>
+          <li><strong>Interactive Queue Drawer:</strong> Slide-over panel pulling active songs with live optimistic reordering.</li>
+          <li><strong>Track Search & Add:</strong> Fast debounced search bar with one-click "Add to Queue".</li>
+          <li><strong>Spotify OAuth 2.0 PKCE:</strong> Secure browser auth with token rotation.</li>
+          <li><strong>Spotify Web Playback SDK:</strong> Direct browser audio stream.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-title">❌ Strictly Out-of-Scope (Non-Goals)</div>
+        <ul>
+          <li><strong>Social & Feed Mechanics:</strong> No friend activity stream or social profiles.</li>
+          <li><strong>Algorithmic Recommendation Engine:</strong> No custom Discover Weekly ML pipelines.</li>
+          <li><strong>Synced Lyrics:</strong> No real-time karaoke lyrics display.</li>
+          <li><strong>Local Audio Files:</strong> Pure Spotify catalog streaming; no local MP3 ingestion.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 3: Team Division of Labor -->
+  <div class="slide" id="slide-3">
+    <div class="slide-header">
+      <span class="badge">Division of Labor</span>
+      <h2>Contract-First Architecture</h2>
+      <p class="desc">Parallel development tracks so neither of us blocks the other.</p>
+    </div>
+    <div class="content-grid">
+      <div class="card">
+        <div class="card-title"><span class="pill pill-be">Backend & API Lead (You)</span></div>
+        <ul>
+          <li><strong>Auth Infrastructure:</strong> Spotify OAuth 2.0 PKCE flow, access & refresh token rotation.</li>
+          <li><strong>Audio Streaming Engine:</strong> Spotify Web Playback SDK integration, device registration & transfer.</li>
+          <li><strong>Spotify API Client:</strong> Resilient wrappers for <code>/queue</code> and <code>/search</code>.</li>
+          <li><strong>Contracts & Store:</strong> Zustand store & custom React hooks (<code>useSpotifyPlayer</code>, <code>useSpotifyQueue</code>).</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-title"><span class="pill pill-fe">Frontend & Design Lead (Partner)</span></div>
+        <ul>
+          <li><strong>Design System:</strong> Modern dark Spotify aesthetic (Tailwind palette, custom sliders).</li>
+          <li><strong>Sticky Player Bar:</strong> Responsive bottom dock with transport buttons, progress bar, & album art.</li>
+          <li><strong>Interactive Queue Drawer:</strong> Slide-over drawer with smooth animations and drag-and-drop handles.</li>
+          <li><strong>Search & List UI:</strong> Clean search input with instantaneous track listing and hover states.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 4: 7-Day Sprint Roadmap -->
+  <div class="slide" id="slide-4">
+    <div class="slide-header">
+      <span class="badge">Roadmap</span>
+      <h2>7-Day Sprint Timeline</h2>
+      <p class="desc">Side-by-side milestones for parallel execution.</p>
+    </div>
+    <div style="flex: 1; overflow-y: auto;">
+      <table class="timeline-table">
+        <thead>
+          <tr>
+            <th style="width: 12%;">Day</th>
+            <th style="width: 44%;">Backend & Data Track (You)</th>
+            <th style="width: 44%;">Frontend & UI Track (Partner)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Day 1</strong></td>
+            <td>Spotify App Setup, OAuth 2.0 PKCE, Auth Route</td>
+            <td>Project Scaffold, Tailwind Theme, Layout Shell</td>
+          </tr>
+          <tr>
+            <td><strong>Day 2</strong></td>
+            <td>API Wrappers (<code>/queue</code>, <code>/search</code>) & Mock Data</td>
+            <td>Static <code>PlayerBar</code> UI with Mock Data</td>
+          </tr>
+          <tr>
+            <td><strong>Day 3</strong></td>
+            <td>Web Playback SDK Script Injection & Device Bridge</td>
+            <td>Static <code>QueueDrawer</code> Slide-over Component</td>
+          </tr>
+          <tr>
+            <td><strong>Day 4</strong></td>
+            <td>Zustand Store + Device Playback Auto-Transfer</td>
+            <td>Connect <code>PlayerBar</code> to Store Hooks</td>
+          </tr>
+          <tr>
+            <td><strong>Day 5</strong></td>
+            <td>Real Queue API Integration + Optimistic Updates</td>
+            <td>Connect <code>QueueDrawer</code> + Search-to-Queue Funnel</td>
+          </tr>
+          <tr>
+            <td><strong>Day 6</strong></td>
+            <td>Edge Cases: Non-Premium 403, Token Auto-Refresh</td>
+            <td>Mobile vs Desktop Responsive Polish & Transitions</td>
+          </tr>
+          <tr>
+            <td><strong>Day 7</strong></td>
+            <td>Integration Testing & Vercel Deployment</td>
+            <td>Design Consistency, Typography & Demo Walkthrough</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Slide 5: Critical Constraint & Success -->
+  <div class="slide" id="slide-5">
+    <div class="slide-header">
+      <span class="badge">Technical Guardrails</span>
+      <h2>Critical Constraints & Ready-to-Build</h2>
+      <p class="desc">Key details to keep in mind throughout development.</p>
+    </div>
+    <div class="content-grid">
+      <div class="card highlight">
+        <div class="card-title">⚠️ Spotify Premium Requirement</div>
+        <p style="font-size: 14px; color: #d4d4d8; line-height: 1.6; margin-bottom: 12px;">
+          The official Spotify Web Playback SDK strictly requires a <strong>Spotify Premium account</strong> for streaming browser audio.
+        </p>
+        <p style="font-size: 13px; color: #a1a1aa; line-height: 1.5;">
+          Free accounts can still authenticate, search songs, and manage queue data, but playback transfers return HTTP 403. We will build a friendly in-app notification for free-tier users.
+        </p>
+      </div>
+      <div class="card">
+        <div class="card-title">🚀 Next Immediate Steps</div>
+        <ul>
+          <li><strong>Step 1:</strong> Clone / scaffold Next.js in <code>scratch/beatz</code>.</li>
+          <li><strong>Step 2:</strong> Partner starts on <code>components/PlayerBar.tsx</code> with mock data.</li>
+          <li><strong>Step 3:</strong> You configure Spotify Developer Dashboard & PKCE auth.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer Navigation -->
+  <div class="footer-nav">
+    <button class="nav-btn" id="prevBtn" onclick="prevSlide()">← Previous</button>
+    <div class="slide-counter" id="slideCounter">Slide 1 of 5</div>
+    <button class="nav-btn primary" id="nextBtn" onclick="nextSlide()">Next →</button>
+  </div>
+</div>
+
+<script>
+  let currentSlide = 1;
+  const totalSlides = 5;
+
+  function showSlide(n) {
+    document.querySelectorAll('.slide').forEach(s => s.classList.remove('active'));
+    document.getElementById('slide-' + n).classList.add('active');
+    document.getElementById('slideCounter').innerText = `Slide ${n} of ${totalSlides}`;
+    document.getElementById('prevBtn').disabled = (n === 1);
+    document.getElementById('nextBtn').innerText = (n === totalSlides) ? 'Finish' : 'Next →';
+  }
+
+  function nextSlide() {
+    if (currentSlide < totalSlides) {
+      currentSlide++;
+      showSlide(currentSlide);
+    }
+  }
+
+  function prevSlide() {
+    if (currentSlide > 1) {
+      currentSlide--;
+      showSlide(currentSlide);
+    }
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === 'Space') nextSlide();
+    if (e.key === 'ArrowLeft') prevSlide();
+  });
+</script>
+
+</body>
+</html>
