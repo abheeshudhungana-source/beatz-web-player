@@ -1,8 +1,18 @@
 import crypto from 'crypto';
 
-export const SPOTIFY_CLIENT_ID = process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID || 'ff95dd361a7a45aa86664f92ea3f3e6c';
-export const SPOTIFY_CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET || '2b164da4ed2f4714a3b159b38fddeddc';
+export const SPOTIFY_CLIENT_ID = process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID;
+export const SPOTIFY_CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET;
 export const SPOTIFY_REDIRECT_URI = process.env.NEXT_PUBLIC_REDIRECT_URI || 'http://localhost:3000/api/auth/callback/spotify';
+
+function assertSpotifyConfig() {
+  if (!SPOTIFY_CLIENT_ID) {
+    throw new Error('Missing Spotify configuration: NEXT_PUBLIC_SPOTIFY_CLIENT_ID is not set.');
+  }
+
+  if (!SPOTIFY_CLIENT_SECRET) {
+    throw new Error('Missing Spotify configuration: SPOTIFY_CLIENT_SECRET is not set.');
+  }
+}
 
 export const SPOTIFY_SCOPES = [
   'streaming',
@@ -41,8 +51,10 @@ export function generateCodeChallenge(verifier: string): string {
  * Exchanges authorization code and code verifier for Spotify access and refresh tokens
  */
 export async function exchangeCodeForTokens(code: string, codeVerifier: string) {
+  assertSpotifyConfig();
+
   const params = new URLSearchParams({
-    client_id: SPOTIFY_CLIENT_ID,
+    client_id: SPOTIFY_CLIENT_ID!,
     grant_type: 'authorization_code',
     code,
     redirect_uri: SPOTIFY_REDIRECT_URI,
@@ -77,8 +89,10 @@ export async function exchangeCodeForTokens(code: string, codeVerifier: string) 
  * Refreshes an expired access token using the refresh token
  */
 export async function refreshAccessToken(refreshToken: string) {
+  assertSpotifyConfig();
+
   const params = new URLSearchParams({
-    client_id: SPOTIFY_CLIENT_ID,
+    client_id: SPOTIFY_CLIENT_ID!,
     grant_type: 'refresh_token',
     refresh_token: refreshToken,
   });
