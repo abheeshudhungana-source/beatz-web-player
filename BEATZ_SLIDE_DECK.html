@@ -47,7 +47,7 @@
       to { opacity: 1; transform: translateY(0); }
     }
     .slide-header {
-      margin-bottom: 28px;
+      margin-bottom: 24px;
     }
     .badge {
       display: inline-block;
@@ -62,7 +62,7 @@
       margin-bottom: 8px;
     }
     h1 {
-      font-size: 38px;
+      font-size: 40px;
       font-weight: 800;
       color: #ffffff;
       line-height: 1.2;
@@ -71,7 +71,7 @@
       font-size: 26px;
       font-weight: 700;
       color: #ffffff;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
     }
     p.desc {
       color: #a1a1aa;
@@ -87,7 +87,7 @@
       background: #18181b;
       border: 1px solid #27272a;
       border-radius: 12px;
-      padding: 24px;
+      padding: 22px;
       display: flex;
       flex-direction: column;
     }
@@ -96,7 +96,7 @@
       background: rgba(29, 185, 84, 0.04);
     }
     .card-title {
-      font-size: 18px;
+      font-size: 17px;
       font-weight: 700;
       color: #ffffff;
       margin-bottom: 12px;
@@ -117,12 +117,12 @@
       padding-left: 0;
     }
     li {
-      font-size: 14px;
+      font-size: 13.5px;
       color: #d4d4d8;
-      margin-bottom: 10px;
+      margin-bottom: 9px;
       display: flex;
       align-items: flex-start;
-      line-height: 1.5;
+      line-height: 1.45;
     }
     li::before {
       content: "•";
@@ -135,8 +135,8 @@
     .timeline-table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 13px;
-      margin-top: 10px;
+      font-size: 12.5px;
+      margin-top: 6px;
     }
     .timeline-table th {
       background: #27272a;
@@ -194,75 +194,74 @@
   <div class="slide active" id="slide-1">
     <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
       <span class="badge">1-Week Sprint Kickoff</span>
-      <h1 style="font-size: 56px; margin: 16px 0 8px;">BEATZ</h1>
-      <p style="font-size: 20px; color: #a1a1aa; max-width: 600px; margin-bottom: 32px;">
-        A high-performance, focused web player and real-time queue orchestration engine for Spotify.
+      <h1 style="font-size: 54px; margin: 16px 0 8px;">BEATZ</h1>
+      <p style="font-size: 19px; color: #a1a1aa; max-width: 680px; margin-bottom: 28px;">
+        The AI-powered Spotify Web Player. Unlocking free on-demand track selection & conversational AI music curation.
       </p>
       <div style="display: flex; gap: 16px;">
         <span style="background: #18181b; border: 1px solid #27272a; padding: 10px 18px; border-radius: 8px; font-size: 14px; color: #93c5fd;">
-          <strong>Backend & APIs:</strong> You
+          <strong>Backend & AI Architecture:</strong> You
         </span>
         <span style="background: #18181b; border: 1px solid #27272a; padding: 10px 18px; border-radius: 8px; font-size: 14px; color: #6ee7b7;">
-          <strong>Frontend & Design:</strong> Partner
+          <strong>Frontend & Design:</strong> Erick
         </span>
       </div>
     </div>
   </div>
 
-  <!-- Slide 2: Scope & Product Vision -->
+  <!-- Slide 2: The Two Core Differentiators -->
   <div class="slide" id="slide-2">
     <div class="slide-header">
-      <span class="badge">Scope Commitment</span>
-      <h2>What We Are Building (And What We Aren't)</h2>
-      <p class="desc">A laser-focused slice designed to deliver maximum standalone fidelity in 7 days.</p>
+      <span class="badge">Market Disruption</span>
+      <h2>Why Beatz Wins Over Spotify</h2>
+      <p class="desc">Two strategic moats that directly solve Spotify's biggest consumer frustrations.</p>
     </div>
     <div class="content-grid">
       <div class="card highlight">
-        <div class="card-title">✅ Strictly In-Scope</div>
+        <div class="card-title">1. Free On-Demand Listening</div>
         <ul>
-          <li><strong>Real-Time Audio Player:</strong> Play/pause, track seek bar, volume scrubber, previous/next track.</li>
-          <li><strong>Interactive Queue Drawer:</strong> Slide-over panel pulling active songs with live optimistic reordering.</li>
-          <li><strong>Track Search & Add:</strong> Fast debounced search bar with one-click "Add to Queue".</li>
-          <li><strong>Spotify OAuth 2.0 PKCE:</strong> Secure browser auth with token rotation.</li>
-          <li><strong>Spotify Web Playback SDK:</strong> Direct browser audio stream.</li>
+          <li><strong>The Spotify Pain:</strong> Spotify Free forces mobile users into shuffle mode with limited skips.</li>
+          <li><strong>The Beatz Solution:</strong> 100% on-demand song picking for free users.</li>
+          <li><strong>The Monetization Trade-off:</strong> Funded by a higher ad density: 3–5 ads/hr, 45s–2.5m each.</li>
+          <li><strong>Economic Moat:</strong> Drives explosive organic user acquisition from frustrated Spotify Free users.</li>
         </ul>
       </div>
-      <div class="card">
-        <div class="card-title">❌ Strictly Out-of-Scope (Non-Goals)</div>
+      <div class="card highlight">
+        <div class="card-title">2. Conversational AI Chatbot ("Beatz AI")</div>
         <ul>
-          <li><strong>Social & Feed Mechanics:</strong> No friend activity stream or social profiles.</li>
-          <li><strong>Algorithmic Recommendation Engine:</strong> No custom Discover Weekly ML pipelines.</li>
-          <li><strong>Synced Lyrics:</strong> No real-time karaoke lyrics display.</li>
-          <li><strong>Local Audio Files:</strong> Pure Spotify catalog streaming; no local MP3 ingestion.</li>
+          <li><strong>The Spotify Void:</strong> Spotify has no interactive chatbot; its "AI DJ" is a passive one-way voice.</li>
+          <li><strong>The Beatz Co-Pilot:</strong> Embedded AI chatbot powered by LLM Function Calling.</li>
+          <li><strong>Natural Language Curation:</strong> "Queue 5 upbeat funk tracks", "Make this vibe darker", "Explain this song".</li>
+          <li><strong>Direct Player Control:</strong> Bot executes actions directly against the Web Playback SDK.</li>
         </ul>
       </div>
     </div>
   </div>
 
-  <!-- Slide 3: Team Division of Labor -->
+  <!-- Slide 3: Division of Labor -->
   <div class="slide" id="slide-3">
     <div class="slide-header">
-      <span class="badge">Division of Labor</span>
+      <span class="badge">Team Ownership</span>
       <h2>Contract-First Architecture</h2>
-      <p class="desc">Parallel development tracks so neither of us blocks the other.</p>
+      <p class="desc">Clean domain boundaries to build in parallel without blocking.</p>
     </div>
     <div class="content-grid">
       <div class="card">
-        <div class="card-title"><span class="pill pill-be">Backend & API Lead (You)</span></div>
+        <div class="card-title"><span class="pill pill-be">Backend & AI Lead (You)</span></div>
         <ul>
-          <li><strong>Auth Infrastructure:</strong> Spotify OAuth 2.0 PKCE flow, access & refresh token rotation.</li>
-          <li><strong>Audio Streaming Engine:</strong> Spotify Web Playback SDK integration, device registration & transfer.</li>
-          <li><strong>Spotify API Client:</strong> Resilient wrappers for <code>/queue</code> and <code>/search</code>.</li>
-          <li><strong>Contracts & Store:</strong> Zustand store & custom React hooks (<code>useSpotifyPlayer</code>, <code>useSpotifyQueue</code>).</li>
+          <li><strong>AI Chatbot Engine (<code>/api/chat</code>):</strong> LLM integration with function calling (<code>search_and_queue</code>, <code>play_track</code>, <code>explain_song</code>).</li>
+          <li><strong>Ad Scheduler Engine:</strong> State machine enforcing 3–5 ads/hr (45s–2.5m) and pausing playback.</li>
+          <li><strong>Web Playback SDK & Auth:</strong> Spotify OAuth 2.0 PKCE, token refresh rotation, and device registration.</li>
+          <li><strong>State Contracts:</strong> Zustand store & custom hooks (<code>useSpotifyPlayer</code>, <code>useBeatzChat</code>).</li>
         </ul>
       </div>
       <div class="card">
-        <div class="card-title"><span class="pill pill-fe">Frontend & Design Lead (Partner)</span></div>
+        <div class="card-title"><span class="pill pill-fe">Frontend & Design Lead (Erick)</span></div>
         <ul>
-          <li><strong>Design System:</strong> Modern dark Spotify aesthetic (Tailwind palette, custom sliders).</li>
+          <li><strong>Beatz AI Chatbot UI:</strong> Slide-over chat widget, message thread, and quick action chips ("⚡ Boost Energy", "🧠 Focus").</li>
+          <li><strong>In-Chat Song Cards:</strong> Playable track recommendation cards with one-click "Add to Queue".</li>
           <li><strong>Sticky Player Bar:</strong> Responsive bottom dock with transport buttons, progress bar, & album art.</li>
-          <li><strong>Interactive Queue Drawer:</strong> Slide-over drawer with smooth animations and drag-and-drop handles.</li>
-          <li><strong>Search & List UI:</strong> Clean search input with instantaneous track listing and hover states.</li>
+          <li><strong>Ad Interstitial Overlay:</strong> Visual countdown overlay (*"Ad break: 1:30 remaining"*).</li>
         </ul>
       </div>
     </div>
@@ -273,15 +272,15 @@
     <div class="slide-header">
       <span class="badge">Roadmap</span>
       <h2>7-Day Sprint Timeline</h2>
-      <p class="desc">Side-by-side milestones for parallel execution.</p>
+      <p class="desc">Parallel day-by-day deliverables.</p>
     </div>
     <div style="flex: 1; overflow-y: auto;">
       <table class="timeline-table">
         <thead>
           <tr>
             <th style="width: 12%;">Day</th>
-            <th style="width: 44%;">Backend & Data Track (You)</th>
-            <th style="width: 44%;">Frontend & UI Track (Partner)</th>
+            <th style="width: 44%;">Backend & AI Track (You)</th>
+            <th style="width: 44%;">Frontend & UI Track (Erick)</th>
           </tr>
         </thead>
         <tbody>
@@ -297,27 +296,27 @@
           </tr>
           <tr>
             <td><strong>Day 3</strong></td>
-            <td>Web Playback SDK Script Injection & Device Bridge</td>
+            <td>Web Playback SDK Injection & Device Transfer Bridge</td>
             <td>Static <code>QueueDrawer</code> Slide-over Component</td>
           </tr>
           <tr>
             <td><strong>Day 4</strong></td>
-            <td>Zustand Store + Device Playback Auto-Transfer</td>
-            <td>Connect <code>PlayerBar</code> to Store Hooks</td>
+            <td>Zustand Store + Ad Scheduler (3–5 ads/hr)</td>
+            <td>Connect <code>PlayerBar</code> to Store + Ad Overlay Banner</td>
           </tr>
           <tr>
             <td><strong>Day 5</strong></td>
-            <td>Real Queue API Integration + Optimistic Updates</td>
-            <td>Connect <code>QueueDrawer</code> + Search-to-Queue Funnel</td>
+            <td>LLM Chatbot Route (<code>/api/chat</code>) with Function Calling</td>
+            <td>Build <code>BeatzChat</code> Drawer with Quick Prompt Chips</td>
           </tr>
           <tr>
             <td><strong>Day 6</strong></td>
-            <td>Edge Cases: Non-Premium 403, Token Auto-Refresh</td>
-            <td>Mobile vs Desktop Responsive Polish & Transitions</td>
+            <td>Connect Chatbot Tools to Player; Non-Premium Banner</td>
+            <td>In-chat Track Recommendation Cards & Polish</td>
           </tr>
           <tr>
             <td><strong>Day 7</strong></td>
-            <td>Integration Testing & Vercel Deployment</td>
+            <td>E2E Integration (Auth &rarr; Stream &rarr; Chat &rarr; Ads)</td>
             <td>Design Consistency, Typography & Demo Walkthrough</td>
           </tr>
         </tbody>
@@ -325,30 +324,31 @@
     </div>
   </div>
 
-  <!-- Slide 5: Critical Constraint & Success -->
+  <!-- Slide 5: Ready to Build -->
   <div class="slide" id="slide-5">
     <div class="slide-header">
-      <span class="badge">Technical Guardrails</span>
-      <h2>Critical Constraints & Ready-to-Build</h2>
-      <p class="desc">Key details to keep in mind throughout development.</p>
+      <span class="badge">Next Action</span>
+      <h2>GitHub Setup & Sprint Launch</h2>
+      <p class="desc">Everything is aligned. Time to push to GitHub and start Day 1.</p>
     </div>
     <div class="content-grid">
       <div class="card highlight">
-        <div class="card-title">⚠️ Spotify Premium Requirement</div>
-        <p style="font-size: 14px; color: #d4d4d8; line-height: 1.6; margin-bottom: 12px;">
-          The official Spotify Web Playback SDK strictly requires a <strong>Spotify Premium account</strong> for streaming browser audio.
-        </p>
-        <p style="font-size: 13px; color: #a1a1aa; line-height: 1.5;">
-          Free accounts can still authenticate, search songs, and manage queue data, but playback transfers return HTTP 403. We will build a friendly in-app notification for free-tier users.
-        </p>
+        <div class="card-title">📦 Repo Setup Status</div>
+        <ul>
+          <li><code>.gitignore</code> strictly configured & excluding all <code>.env</code> files.</li>
+          <li><code>.env.example</code> template ready for team credentials.</li>
+          <li>Unified <code>README.md</code>, <code>.doc</code>, and <code>.md</code> spec files updated.</li>
+          <li>Initial git commit created on branch <code>main</code>.</li>
+        </ul>
       </div>
       <div class="card">
-        <div class="card-title">🚀 Next Immediate Steps</div>
-        <ul>
-          <li><strong>Step 1:</strong> Clone / scaffold Next.js in <code>scratch/beatz</code>.</li>
-          <li><strong>Step 2:</strong> Partner starts on <code>components/PlayerBar.tsx</code> with mock data.</li>
-          <li><strong>Step 3:</strong> You configure Spotify Developer Dashboard & PKCE auth.</li>
-        </ul>
+        <div class="card-title">🚀 Ready to Push</div>
+        <p style="font-size: 13.5px; color: #d4d4d8; line-height: 1.6; margin-bottom: 12px;">
+          Create <strong><code>beatz-web-player</code></strong> on GitHub and link the remote.
+        </p>
+        <p style="font-size: 13px; color: #a1a1aa; line-height: 1.5;">
+          Once pushed, invite Erick (<code>erick.marcatoma@pursuit.org</code>) as collaborator so he can begin Day 1 layout scaffolding!
+        </p>
       </div>
     </div>
   </div>

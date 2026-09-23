@@ -1,79 +1,80 @@
 # BEATZ: Master Implementation Plan & Architecture Spec
 **Sprint Duration:** 1-Week MVP  
-**Product:** Beatz (Lightweight Spotify Web Player & Queue Manager)  
-**Stack:** Next.js 14+ (App Router), TypeScript, Tailwind CSS, Zustand, Spotify Web Playback SDK, Spotify Web API  
+**Product:** Beatz (AI-Powered Spotify Web Player & Queue Orchestrator)  
+**Stack:** Next.js 14+ (App Router), TypeScript, Tailwind CSS, Zustand, Spotify Web Playback SDK, Spotify Web API, Gemini / LLM API  
 
 ---
 
-## Team Division of Labor
+## Executive Summary & Core Value Proposition
 
-To work in parallel without blocking each other, we use a **Contract-First Architecture**:
-* **Backend & API Architecture Lead (You):** Auth (OAuth 2.0 PKCE / token refresh), Spotify Web API wrappers, Web Playback SDK initialization & device transfer, Zustand global store, and custom React hooks (`useSpotifyPlayer`, `useSpotifyQueue`, `useAuth`).
-* **Frontend & Design Lead (Your Partner):** UI components (Player bar, queue drawer, search view), Tailwind styling & animations, layout responsiveness, user interaction polish, and binding to your custom hooks.
+**Beatz** solves Spotify's two biggest limitations:
+1. **Free On-Demand Listening:** Unlike Spotify Free which forces shuffle mode on mobile, Beatz allows users to pick and play *any* song on demand (monetized by a higher ad density: 3–5 ads/hr, 45s–2.5m each).
+2. **Conversational AI Music Chatbot ("Beatz AI"):** Spotify offers no interactive chatbot. Beatz integrates a conversational AI co-pilot capable of curating queues, modifying vibes via natural language, and answering music trivia about the active track using LLM Tool Calling.
+
+---
+
+## Team Division of Labor (Contract-First)
+
+* **Backend & API Architecture Lead (You):**
+  - Spotify OAuth 2.0 PKCE flow & token refresh rotation.
+  - Spotify Web Playback SDK streaming engine and device transfer.
+  - REST API wrappers (`/queue`, `/search`, `/player`).
+  - **AI Chatbot Backend:** `/api/chat` route with LLM Function Calling (`searchAndQueue`, `playTrack`, `getCurrentlyPlaying`, `explainTrack`).
+  - **Ad Scheduler Engine:** State machine handling 3–5 ad breaks/hr (45s–2.5m), pausing playback, and locking controls.
+  - Zustand global store & custom React hooks (`useSpotifyPlayer`, `useSpotifyQueue`, `useBeatzChat`).
+
+* **Frontend & UI/UX Design Lead (Erick):**
+  - Dark Spotify design system & responsive layout shell.
+  - Sticky bottom player bar with scrubber, transport buttons, and volume control.
+  - Slide-over interactive queue drawer with optimistic reordering.
+  - **Chatbot UI Drawer / Widget:** Message thread, quick prompt chips ("⚡ Boost Energy", "🧠 Deep Focus", "❓ Song Trivia"), and playable track recommendation cards.
+  - **Ad Break Interstitial Banner:** Countdown overlay (*"Ad break in progress: 1:30 remaining"*).
 
 ---
 
 ## 1. System Architecture & Data Flow
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│                                FRONTEND (Partner)                               │
-│                                                                                 │
-│   ┌────────────────────────┐  ┌─────────────────────────┐  ┌────────────────┐   │
-│   │  Sticky Bottom Player  │  │   Active Queue Drawer   │  │ Search & List  │   │
-│   │  (Scrubber, Transport) │  │   (Reorder, Item Cards) │  │ (Track Cards)  │   │
-│   └───────────┬────────────┘  └────────────┬────────────┘  └────────┬───────┘   │
-└───────────────┼────────────────────────────┼────────────────────────┼───────────┘
-                │                            │                        │
-                ▼                            ▼                        ▼
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│                         CONTRACT HOOKS & STORE (You)                            │
-│                                                                                 │
-│   ┌──────────────────────┐  ┌───────────────────────┐  ┌────────────────────┐   │
-│   │  useSpotifyPlayer()  │  │   useSpotifyQueue()   │  │     useAuth()      │   │
-│   └──────────┬───────────┘  └───────────┬───────────┘  └─────────┬──────────┘   │
-│              │                          │                        │              │
-│              ▼                          ▼                        ▼              │
-│   ┌─────────────────────────────────────────────────────────────────────────┐   │
-│   │                    Zustand Global Player Store                          │   │
-│   │  { currentTrack, isPlaying, progressMs, durationMs, queue, volume... }  │   │
-│   └──────────────────────┬──────────────────────────┬───────────────────────┘   │
-└──────────────────────────┼──────────────────────────┼───────────────────────────┘
-                           │                          │
-              ┌────────────┴─────────────┐            │
-              ▼                          ▼            ▼
-┌───────────────────────────┐  ┌──────────────────────────────────────────────────┐
-│  Spotify Web Playback SDK │  │               Spotify REST API                   │
-│  (Real-Time Audio Stream) │  │  (GET /queue, POST /queue, GET /search, Play)    │
-└───────────────────────────┘  └──────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────────────────────┐
+│                                FRONTEND (Erick)                                   │
+│                                                                                   │
+│   ┌──────────────────────┐  ┌───────────────────────┐  ┌──────────────────────┐   │
+│   │ Sticky Player Bar    │  │ Interactive Queue     │  │ Beatz AI Chat Drawer │   │
+│   │ (Transport, Scrubber)│  │ (Slide-over, Reorder) │  │ (Messages, Chips)    │   │
+│   └──────────┬───────────┘  └───────────┬───────────┘  └──────────┬───────────┘   │
+└──────────────┼──────────────────────────┼─────────────────────────┼───────────────┘
+               │                          │                         │
+               ▼                          ▼                         ▼
+┌───────────────────────────────────────────────────────────────────────────────────┐
+│                          CONTRACT HOOKS & STORE (You)                             │
+│                                                                                   │
+│   ┌─────────────────────┐    ┌────────────────────┐    ┌──────────────────────┐   │
+│   │ useSpotifyPlayer()  │    │ useSpotifyQueue()  │    │   useBeatzChat()     │   │
+│   └──────────┬──────────┘    └──────────┬─────────┘    └──────────┬───────────┘   │
+│              │                          │                         │               │
+│              ▼                          ▼                         ▼               │
+│   ┌───────────────────────────────────────────────────────────────────────────┐   │
+│   │                     Zustand Global Player Store                           │   │
+│   │  { currentTrack, isPlaying, queue, adState, chatHistory, volume... }      │   │
+│   └──────────┬──────────────────────────┬─────────────────────────┬───────────┘   │
+└──────────────┼──────────────────────────┼─────────────────────────┼───────────────┘
+               │                          │                         │
+               ▼                          ▼                         ▼
+┌──────────────────────────┐ ┌─────────────────────────┐ ┌─────────────────────────┐
+│ Spotify Web Playback SDK │ │   Spotify REST API      │ │ LLM API (/api/chat)     │
+│ (Streaming Audio Engine) │ │ (Queue, Search, Control)│ │ (Tool Calling Engine)   │
+└──────────────────────────┘ └─────────────────────────┘ └─────────────────────────┘
 ```
 
 ---
 
 ## 2. Shared Data Contracts (`types/spotify.ts`)
 
-Both frontend and backend will code against these exact TypeScript interfaces:
-
 ```typescript
-// types/spotify.ts
-
 export interface SpotifyArtist {
   id: string;
   name: string;
   uri: string;
-}
-
-export interface SpotifyImage {
-  url: string;
-  height: number | null;
-  width: number | null;
-}
-
-export interface SpotifyAlbum {
-  id: string;
-  name: string;
-  uri: string;
-  images: SpotifyImage[];
 }
 
 export interface SpotifyTrack {
@@ -82,188 +83,58 @@ export interface SpotifyTrack {
   name: string;
   durationMs: number;
   artists: SpotifyArtist[];
-  album: SpotifyAlbum;
-  previewUrl?: string | null;
+  album: {
+    id: string;
+    name: string;
+    images: { url: string; height: number; width: number }[];
+  };
 }
 
 export interface QueueState {
   currentlyPlaying: SpotifyTrack | null;
   upcomingTracks: SpotifyTrack[];
   isLoading: boolean;
-  error: string | null;
 }
 
-export interface PlayerPlaybackState {
-  deviceId: string | null;
-  isReady: boolean;
-  isPlaying: boolean;
-  isPaused: boolean;
-  currentTrack: SpotifyTrack | null;
-  progressMs: number;
-  durationMs: number;
-  volume: number; // 0.0 to 1.0
-  shuffle: boolean;
-  repeatMode: 0 | 1 | 2; // 0 = off, 1 = context, 2 = track
+export interface AdBreakState {
+  isAdPlaying: boolean;
+  adDurationMs: number;
+  adProgressMs: number;
+  adIndex: number;
+  totalAdsInBreak: number;
+}
+
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  suggestedTracks?: SpotifyTrack[];
+  actionExecuted?: 'queued' | 'played' | 'info';
+  timestamp: number;
 }
 ```
 
 ---
 
-## 3. Backend Track: Step-by-Step Architecture (Your Deliverables)
+## 3. AI Chatbot Tool Calling Definition (Backend `/api/chat`)
 
-### Milestone B1: Spotify App Registration & Auth Setup
-1. Register application at [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard).
-2. Set Redirect URI: `http://localhost:3000/api/auth/callback/spotify` (and production URL).
-3. Request required OAuth Scopes:
-   - `streaming` (for Web Playback SDK)
-   - `user-read-email` & `user-read-private` (account verification)
-   - `user-read-playback-state` & `user-modify-playback-state` (transport control)
-   - `user-read-currently-playing` (live sync)
+When the user chats with **Beatz AI**, the backend provides these executable tools to the LLM:
 
-### Milestone B2: API Wrappers (`lib/spotify.ts`)
-Create resilient REST API clients for the frontend to consume:
-- `fetchCurrentQueue(accessToken: string): Promise<QueueState>`
-- `addToSpotifyQueue(uri: string, accessToken: string): Promise<boolean>`
-- `searchTracks(query: string, accessToken: string): Promise<SpotifyTrack[]>`
-- `transferPlaybackToDevice(deviceId: string, accessToken: string): Promise<void>`
-
-### Milestone B3: Web Playback SDK Engine & Zustand Store (`store/usePlayerStore.ts`)
-1. Dynamically inject `https://sdk.scdn.co/spotify-player.js`.
-2. Define `window.onSpotifyWebPlaybackSDKReady`.
-3. Wire up listeners:
-   - `ready`: capture `device_id` and auto-transfer active playback.
-   - `not_ready`: handle device disconnection.
-   - `player_state_changed`: pipe current position, duration, and track info directly to the Zustand store.
-   - `account_error`: show friendly message if account is not Spotify Premium.
+1. `search_and_queue_tracks(query: string, count: number)`: Automatically finds songs matching user's vibe and appends them to the queue.
+2. `play_track_now(track_query: string)`: Finds the best matching track and starts playback immediately.
+3. `get_current_playback_context()`: Inspects currently playing artist, song, and genre to answer trivia or find sonic matches.
+4. `clear_and_replace_queue(genre_or_mood: string)`: Wipes the upcoming queue and generates a fresh set of matching songs.
 
 ---
 
-## 4. Frontend Track: UI Components & Design (Your Partner's Deliverables)
+## 4. 7-Day Parallel Sprint Plan
 
-### Theme Palette (Spotify Dark Aesthetic)
-* Background Primary: `#121212`
-* Background Surface (Cards/Player): `#181818`
-* Background Hover/Border: `#282828`
-* Brand Accent / Highlights: `#1DB954` (Spotify Green)
-* Text Primary: `#FFFFFF`
-* Text Muted / Subtitles: `#A7A7A7`
-
-### Milestone F1: App Layout & Navigation
-* Responsive full-height container with sticky player bar anchored at bottom (`fixed bottom-0 left-0 right-0 h-24`).
-* Top search header with instant query clearing and debounced input.
-* Main content view for track results or active queue view.
-
-### Milestone F2: Persistent Player Bar Component (`components/PlayerBar.tsx`)
-* **Left Section:** Album art thumbnail (64x64), Track Title (bold, truncated), Artist Names (muted, truncated).
-* **Center Section:**
-  * Transport buttons: Shuffle, Previous, Big Play/Pause Toggle, Next, Repeat.
-  * Time Scrubber: Current timestamp (`01:24`), custom draggable range slider, Total duration (`03:45`).
-* **Right Section:**
-  * Queue Drawer toggle button (with active badge count).
-  * Volume icon (Mute toggle) + Volume slider (`0%` - `100%`).
-
-### Milestone F3: Interactive Queue Drawer (`components/QueueDrawer.tsx`)
-* Slide-over right drawer or modal overlay.
-* "Now Playing" highlight card.
-* "Next in Queue" list view with smooth hover effects, track duration, and clear/remove action buttons.
-* Optimistic drag-and-drop or up/down reordering.
-
----
-
-## 5. Day-by-Day Parallel Sprint Plan
-
-| Day | Backend Track (You) | Frontend Track (Your Partner) |
+| Day | Backend & API Track (You) | Frontend & Design Track (Erick) |
 |---|---|---|
-| **Day 1** | Register Spotify App, configure `.env.local`, setup Next.js auth routes / PKCE token handler. | Scaffold Next.js + Tailwind project, configure color tokens, build basic application layout shell. |
-| **Day 2** | Build `lib/spotify.ts` API wrappers (`/queue`, `/search`, `/play`). Create mock data responses. | Build static `PlayerBar` UI with mock data (`currentTrack`, duration slider, dummy play/pause state). |
-| **Day 3** | Implement Web Playback SDK initialization script and `window.Spotify.Player` lifecycle bindings. | Build static `QueueDrawer` UI with mock upcoming tracks list and open/close drawer transitions. |
-| **Day 4** | Build Zustand player store and implement `transferPlaybackToDevice()` with auto-activation. | Connect `PlayerBar` UI to Zustand store hooks (`togglePlay`, `seek`, `setVolume`, `next`, `prev`). |
-| **Day 5** | Connect Queue API (`GET /v1/me/player/queue` & `POST /v1/me/player/queue`) with optimistic state updates. | Connect `QueueDrawer` and build `SearchBar` with debounced input and "Add to Queue" button. |
-| **Day 6** | Error boundaries: Non-Premium 403 handling, token auto-refresh interval, rate-limit retries. | Responsive design polish (mobile bottom sheet vs desktop dock), hover states, volume transitions. |
-| **Day 7** | End-to-end integration test (Auth -> Stream -> Queue -> Search), Vercel production deployment. | Final aesthetic polish, typography alignment, empty states ("Queue is empty"), demo prep. |
-
----
-
-## 6. Copy-Paste Code Scaffolding
-
-### A. Backend Store (`store/usePlayerStore.ts`)
-```typescript
-import { create } from 'zustand';
-import { PlayerPlaybackState, SpotifyTrack } from '@/types/spotify';
-
-interface PlayerStore extends PlayerPlaybackState {
-  setPlayerState: (state: Partial<PlayerPlaybackState>) => void;
-  setCurrentTrack: (track: SpotifyTrack | null) => void;
-  setProgress: (progressMs: number) => void;
-  setVolume: (volume: number) => void;
-}
-
-export const usePlayerStore = create<PlayerStore>((set) => ({
-  deviceId: null,
-  isReady: false,
-  isPlaying: false,
-  isPaused: true,
-  currentTrack: null,
-  progressMs: 0,
-  durationMs: 0,
-  volume: 0.8,
-  shuffle: false,
-  repeatMode: 0,
-  setPlayerState: (newState) => set((prev) => ({ ...prev, ...newState })),
-  setCurrentTrack: (track) => set({ currentTrack: track }),
-  setProgress: (progressMs) => set({ progressMs }),
-  setVolume: (volume) => set({ volume }),
-}));
-```
-
-### B. Frontend Custom Hook Contract (`hooks/useSpotifyPlayer.ts`)
-```typescript
-import { usePlayerStore } from '@/store/usePlayerStore';
-
-export function useSpotifyPlayer() {
-  const state = usePlayerStore();
-
-  const togglePlay = async () => {
-    if (!window.spotifyPlayerInstance) return;
-    await window.spotifyPlayerInstance.togglePlay();
-  };
-
-  const nextTrack = async () => {
-    if (!window.spotifyPlayerInstance) return;
-    await window.spotifyPlayerInstance.nextTrack();
-  };
-
-  const previousTrack = async () => {
-    if (!window.spotifyPlayerInstance) return;
-    await window.spotifyPlayerInstance.previousTrack();
-  };
-
-  const seek = async (positionMs: number) => {
-    if (!window.spotifyPlayerInstance) return;
-    await window.spotifyPlayerInstance.seek(positionMs);
-    usePlayerStore.getState().setProgress(positionMs);
-  };
-
-  const changeVolume = async (volume: number) => {
-    if (!window.spotifyPlayerInstance) return;
-    await window.spotifyPlayerInstance.setVolume(volume);
-    usePlayerStore.getState().setVolume(volume);
-  };
-
-  return {
-    ...state,
-    togglePlay,
-    nextTrack,
-    previousTrack,
-    seek,
-    changeVolume,
-  };
-}
-```
-
----
-
-## 7. Crucial Edge Cases & Gotchas
-1. **Spotify Premium Check:** Free tier users will get a `403 Forbidden` error when transferring playback. Have the frontend render an informative banner: *"Streaming requires an active Spotify Premium account. You can still search and manage queues."*
-2. **Token Expiration:** Spotify OAuth access tokens expire after 3,600 seconds (1 hour). Backend must implement refresh token rotation so music doesn't cut out mid-session.
-3. **Browser Autoplay Restrictions:** Browsers (Chrome/Safari) block audio from playing automatically without an initial user gesture. Ensure playback begins after an explicit click event.
+| **Day 1** | App setup on Spotify Dashboard, OAuth 2.0 PKCE auth flow, token refresh handler | Next.js + Tailwind scaffold, Spotify dark color tokens, app layout shell |
+| **Day 2** | `lib/spotify.ts` API wrappers (`/queue`, `/search`) with mock fallback data | Static `PlayerBar` UI with mock song metadata, transport buttons, scrubber |
+| **Day 3** | Web Playback SDK script injection, device ID registration, stream lifecycle bridge | Static `QueueDrawer` slide-over component with mock song queue and transitions |
+| **Day 4** | Build Zustand player store + Ad Scheduler engine (3-5 ads/hr, 45s-2.5m) | Connect `PlayerBar` to Zustand hooks; build Ad interstitial countdown banner |
+| **Day 5** | Build `/api/chat` route with LLM tool calling (`search_and_queue`, `play_track`) | Build `BeatzChat` slide-over widget with prompt chips and track cards |
+| **Day 6** | Connect Chatbot tools to live player state; 403 Non-Premium banner handling | Mobile vs desktop responsive polish, chat bubble animations, empty states |
+| **Day 7** | End-to-end integration (Auth -> Play -> Queue -> Chat -> Ads) & Vercel deployment | Final typography & layout consistency, presentation slides & demo walkthrough |
