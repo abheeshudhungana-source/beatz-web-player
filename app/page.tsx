@@ -28,6 +28,17 @@ const queueTracks: QueueItem[] = [
   { id: 'lush-life', title: 'Lush Life', artist: 'Zara Larsson', duration: '4:07', accent: 'bg-orange-500/15 text-orange-300' },
 ];
 
+const libraryTracks = [
+  { title: 'Midnight City', artist: 'M83', duration: '3:52', mood: 'Synthwave' },
+  { title: 'Afterdark', artist: 'Cyril', duration: '4:18', mood: 'Night drive' },
+  { title: 'Night Drive', artist: 'Nils Frahm', duration: '3:41', mood: 'Ambient' },
+  { title: 'Lush Life', artist: 'Zara Larsson', duration: '4:07', mood: 'Pop' },
+  { title: 'Electric Feel', artist: 'MGMT', duration: '3:49', mood: 'Indie' },
+  { title: 'Sunset Lover', artist: 'Petit Biscuit', duration: '3:15', mood: 'Chill' },
+  { title: 'Starboy', artist: 'The Weeknd', duration: '3:50', mood: 'R&B' },
+  { title: 'Dreams', artist: 'Fleetwood Mac', duration: '4:32', mood: 'Classic rock' },
+];
+
 function formatDuration(durationMs: number): string {
   const totalSeconds = Math.max(0, Math.floor(durationMs / 1000));
   const minutes = Math.floor(totalSeconds / 60);
@@ -39,6 +50,7 @@ export default function Home() {
   const { isAuthenticated, isLoading, user, login, logout } = useSpotifyAuth();
   const [isQueueOpen, setIsQueueOpen] = useState(false);
   const [selectedTrackId, setSelectedTrackId] = useState('midnight-city');
+  const [searchTerm, setSearchTerm] = useState('');
 
   const {
     currentTrack,
@@ -85,6 +97,16 @@ export default function Home() {
     const selected = queueTracks.find((track) => track.id === selectedTrackId) ?? queueTracks[0];
     return selected;
   }, [selectedTrackId]);
+
+  const filteredTracks = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+
+    if (!query) {
+      return libraryTracks.slice(0, 4);
+    }
+
+    return libraryTracks.filter((track) => `${track.title} ${track.artist} ${track.mood}`.toLowerCase().includes(query));
+  }, [searchTerm]);
 
   const nowPlaying = useMemo(() => {
     const track = currentTrack ?? queue.currentlyPlaying ?? queue.upcomingTracks[0];
@@ -186,9 +208,15 @@ export default function Home() {
             Queue
           </button>
 
-          <div className="hidden items-center gap-2 rounded-full border border-spotify-highlight bg-spotify-elevated px-3 py-1.5 text-spotify-subtext sm:flex">
+          <div className="hidden min-w-[220px] items-center gap-2 rounded-full border border-spotify-highlight bg-spotify-elevated px-3 py-1.5 text-spotify-subtext sm:flex">
             <Search className="h-3.5 w-3.5" />
-            <span className="text-[11px]">Search library</span>
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="Search tracks or artists"
+              className="w-full bg-transparent text-xs text-white placeholder:text-spotify-subtext outline-none"
+            />
           </div>
 
           <div className="flex items-center gap-3 rounded-full border border-spotify-highlight bg-spotify-elevated py-1.5 px-3">
@@ -263,6 +291,55 @@ export default function Home() {
             </div>
           </div>
         )}
+
+        <section className="rounded-3xl border border-spotify-border bg-spotify-surface p-5 shadow-xl shadow-black/20">
+          <div className="flex items-center gap-3 rounded-2xl border border-spotify-highlight bg-spotify-elevated px-4 py-3">
+            <Search className="h-4 w-4 text-spotify-subtext" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="Search the Beatz library"
+              className="w-full bg-transparent text-sm text-white placeholder:text-spotify-subtext outline-none"
+            />
+          </div>
+
+          <div className="mt-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-zinc-200">
+                {searchTerm ? 'Search results' : 'Popular this week'}
+              </h3>
+              <span className="text-[11px] text-spotify-subtext">{filteredTracks.length} tracks</span>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2">
+              {filteredTracks.map((track) => (
+                <button
+                  key={`${track.title}-${track.artist}`}
+                  type="button"
+                  className="flex items-center justify-between rounded-2xl border border-spotify-border bg-spotify-elevated/60 p-3 text-left transition hover:border-spotify-green/40 hover:bg-spotify-elevated"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-spotify-green/15 text-spotify-green">
+                      <Music className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-white">{track.title}</p>
+                      <p className="truncate text-[11px] text-spotify-subtext">{track.artist}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 text-[11px] text-zinc-300">
+                    <span>{track.duration}</span>
+                    <span className="rounded-full border border-spotify-highlight bg-spotify-surface px-2 py-0.5 text-spotify-green">
+                      {track.mood}
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
 
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.2fr_0.8fr]">
           <section className="rounded-3xl border border-spotify-border bg-spotify-surface p-6 shadow-xl shadow-black/20">
