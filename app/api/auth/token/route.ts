@@ -26,6 +26,14 @@ export async function GET() {
       accessToken = refreshed.access_token;
       const newExpiresAt = Date.now() + refreshed.expires_in * 1000;
 
+      if (!accessToken) {
+        return NextResponse.json({
+          isAuthenticated: false,
+          accessToken: null,
+          error: 'missing_access_token',
+        });
+      }
+
       cookieStore.set('spotify_access_token', accessToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
@@ -49,6 +57,14 @@ export async function GET() {
         error: 'refresh_failed',
       });
     }
+  }
+
+  if (!accessToken) {
+    return NextResponse.json({
+      isAuthenticated: false,
+      accessToken: null,
+      user: null,
+    });
   }
 
   // Fetch current user profile to verify account status (e.g. Premium vs Free)

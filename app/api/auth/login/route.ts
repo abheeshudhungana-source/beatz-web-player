@@ -22,6 +22,10 @@ export async function GET() {
     path: '/',
   });
 
+  if (!SPOTIFY_CLIENT_ID) {
+    throw new Error('Missing Spotify configuration: NEXT_PUBLIC_SPOTIFY_CLIENT_ID is not set.');
+  }
+
   const authUrl = new URL('https://accounts.spotify.com/authorize');
   authUrl.searchParams.set('client_id', SPOTIFY_CLIENT_ID);
   authUrl.searchParams.set('response_type', 'code');
