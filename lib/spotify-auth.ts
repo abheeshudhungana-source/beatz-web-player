@@ -47,17 +47,31 @@ export function generateCodeChallenge(verifier: string): string {
   return hash.toString('base64url');
 }
 
+export function getRedirectUri(requestOrigin?: string): string {
+  if (process.env.NEXT_PUBLIC_REDIRECT_URI) {
+    return process.env.NEXT_PUBLIC_REDIRECT_URI;
+  }
+  if (requestOrigin) {
+    return `${requestOrigin}/api/auth/callback/spotify`;
+  }
+  return 'http://localhost:3000/api/auth/callback/spotify';
+}
+
 /**
  * Exchanges authorization code and code verifier for Spotify access and refresh tokens
  */
-export async function exchangeCodeForTokens(code: string, codeVerifier: string) {
+export async function exchangeCodeForTokens(
+  code: string,
+  codeVerifier: string,
+  customRedirectUri?: string
+) {
   assertSpotifyConfig();
 
   const params = new URLSearchParams({
     client_id: SPOTIFY_CLIENT_ID!,
     grant_type: 'authorization_code',
     code,
-    redirect_uri: SPOTIFY_REDIRECT_URI,
+    redirect_uri: customRedirectUri || getRedirectUri(),
     code_verifier: codeVerifier,
   });
 

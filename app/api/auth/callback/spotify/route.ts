@@ -21,7 +21,8 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const tokens = await exchangeCodeForTokens(code, codeVerifier);
+    const redirectUriUsed = cookieStore.get('spotify_redirect_uri_used')?.value;
+    const tokens = await exchangeCodeForTokens(code, codeVerifier, redirectUriUsed);
     const expiresAt = Date.now() + tokens.expires_in * 1000;
 
     // Set secure HTTP-only cookies
@@ -51,8 +52,9 @@ export async function GET(request: NextRequest) {
       path: '/',
     });
 
-    // Clean up temporary verifier cookie
+    // Clean up temporary verifier and redirect cookies
     cookieStore.delete('spotify_code_verifier');
+    cookieStore.delete('spotify_redirect_uri_used');
 
     return NextResponse.redirect(new URL('/', request.url));
   } catch (err: any) {
