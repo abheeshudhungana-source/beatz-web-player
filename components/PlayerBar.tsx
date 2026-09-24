@@ -1,19 +1,23 @@
 'use client';
 
-import { useBeatzStore } from '@/lib/store';
+import { useBeatzStore } from '@/store/beatz-store';
 import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, ListMusic, MessageSquare } from 'lucide-react';
 
 export default function PlayerBar() {
-  const playback = useBeatzStore((state) => state.playback);
+  const currentTrack = useBeatzStore((state) => state.currentTrack);
+  const isPlaying = useBeatzStore((state) => state.isPlaying);
+  const progressMs = useBeatzStore((state) => state.progressMs);
+  const durationMs = useBeatzStore((state) => state.durationMs);
+  const volume = useBeatzStore((state) => state.volume);
   const togglePlay = useBeatzStore((state) => state.togglePlay);
+  const nextTrack = useBeatzStore((state) => state.nextTrack);
+  const previousTrack = useBeatzStore((state) => state.previousTrack);
   const seekTo = useBeatzStore((state) => state.seekTo);
   const setVolume = useBeatzStore((state) => state.setVolume);
   const toggleQueue = useBeatzStore((state) => state.toggleQueue);
   const isQueueOpen = useBeatzStore((state) => state.isQueueOpen);
   const toggleChat = useBeatzStore((state) => state.toggleChat);
   const isChatOpen = useBeatzStore((state) => state.isChatOpen);
-
-  const currentTrack = playback.currentTrack;
 
   // Format millisecond timestamp to mm:ss
   const formatTime = (ms: number) => {
@@ -23,13 +27,11 @@ export default function PlayerBar() {
     return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
   };
 
-  const progressPercent = playback.durationMs > 0
-    ? (playback.progressMs / playback.durationMs) * 100
-    : 0;
+  const progressPercent = durationMs > 0 ? (progressMs / durationMs) * 100 : 0;
 
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
     const percent = parseFloat(e.target.value);
-    const targetMs = (percent / 100) * playback.durationMs;
+    const targetMs = (percent / 100) * durationMs;
     seekTo(targetMs);
   };
 
@@ -63,9 +65,9 @@ export default function PlayerBar() {
       <div className="flex flex-col items-center gap-2 w-2/4 max-w-xl">
         <div className="flex items-center gap-6 text-zinc-300">
           <button
-            onClick={() => seekTo(0)}
+            onClick={previousTrack}
             className="hover:text-white transition disabled:opacity-40"
-            title="Restart Track"
+            title="Restart / Previous Track"
           >
             <SkipBack className="h-4 w-4" />
           </button>
@@ -73,9 +75,9 @@ export default function PlayerBar() {
           <button
             onClick={togglePlay}
             className="h-9 w-9 rounded-full bg-white text-black flex items-center justify-center hover:scale-105 active:scale-95 transition shadow-lg shadow-white/10"
-            title={playback.isPlaying ? 'Pause' : 'Play'}
+            title={isPlaying ? 'Pause' : 'Play'}
           >
-            {playback.isPlaying ? (
+            {isPlaying ? (
               <Pause className="h-4 w-4 fill-black" />
             ) : (
               <Play className="h-4 w-4 fill-black ml-0.5" />
@@ -83,9 +85,9 @@ export default function PlayerBar() {
           </button>
 
           <button
-            onClick={() => seekTo(playback.durationMs)}
+            onClick={nextTrack}
             className="hover:text-white transition disabled:opacity-40"
-            title="Skip Track (Decoupled from ad penalties)"
+            title="Next Track (Decoupled from ad penalties)"
           >
             <SkipForward className="h-4 w-4" />
           </button>
@@ -94,7 +96,7 @@ export default function PlayerBar() {
         {/* Progress Scrubber */}
         <div className="flex items-center gap-3 w-full">
           <span className="text-[11px] font-mono text-zinc-400 w-9 text-right">
-            {formatTime(playback.progressMs)}
+            {formatTime(progressMs)}
           </span>
           <div className="relative flex-1 flex items-center group">
             <input
@@ -108,7 +110,7 @@ export default function PlayerBar() {
             />
           </div>
           <span className="text-[11px] font-mono text-zinc-400 w-9">
-            {formatTime(playback.durationMs)}
+            {formatTime(durationMs)}
           </span>
         </div>
       </div>
@@ -146,10 +148,10 @@ export default function PlayerBar() {
         {/* Volume Controls */}
         <div className="flex items-center gap-2 pl-2 border-l border-spotify-border">
           <button
-            onClick={() => setVolume(playback.volume > 0 ? 0 : 0.8)}
+            onClick={() => setVolume(volume > 0 ? 0 : 0.8)}
             className="text-zinc-400 hover:text-white transition"
           >
-            {playback.volume === 0 ? (
+            {volume === 0 ? (
               <VolumeX className="h-4 w-4" />
             ) : (
               <Volume2 className="h-4 w-4" />
@@ -160,7 +162,7 @@ export default function PlayerBar() {
             min="0"
             max="1"
             step="0.05"
-            value={playback.volume}
+            value={volume}
             onChange={(e) => setVolume(parseFloat(e.target.value))}
             className="w-16 h-1 bg-spotify-elevated rounded-full appearance-none cursor-pointer accent-spotify-green"
           />
