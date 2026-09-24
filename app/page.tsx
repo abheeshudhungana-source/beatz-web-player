@@ -13,6 +13,7 @@ import {
   LogOut,
   CheckCircle2,
   AlertCircle,
+  Search,
   SkipBack,
   SkipForward,
   Pause,
@@ -29,6 +30,7 @@ function formatDuration(durationMs: number): string {
 
 export default function Home() {
   const { isAuthenticated, isLoading, user, login, logout } = useSpotifyAuth();
+  const [searchTerm, setSearchTerm] = useState('');
 
   const {
     currentTrack,
@@ -180,7 +182,17 @@ export default function Home() {
             <span>Queue ({queue.upcomingTracks.length})</span>
           </button>
 
-          {/* User Profile Pill */}
+          <div className="hidden min-w-[220px] items-center gap-2 rounded-full border border-spotify-highlight bg-spotify-elevated px-3 py-1.5 text-spotify-subtext sm:flex">
+            <Search className="h-3.5 w-3.5" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="Search tracks or artists"
+              className="w-full bg-transparent text-xs text-white placeholder:text-spotify-subtext outline-none"
+            />
+          </div>
+
           <div className="flex items-center gap-3 rounded-full border border-spotify-highlight bg-spotify-elevated py-1.5 px-3">
             {user?.images?.[0]?.url ? (
               <img
@@ -283,7 +295,28 @@ export default function Home() {
           </div>
         )}
 
-        {/* Hero Now-Playing Section & Queue Preview */}
+        <section className="rounded-3xl border border-spotify-border bg-spotify-surface p-5 shadow-xl shadow-black/20">
+          <div className="flex items-center gap-3 rounded-2xl border border-spotify-highlight bg-spotify-elevated px-4 py-3">
+            <Search className="h-4 w-4 text-spotify-subtext" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="Search the Beatz library"
+              className="w-full bg-transparent text-sm text-white placeholder:text-spotify-subtext outline-none"
+            />
+          </div>
+
+          <div className="mt-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-zinc-200">
+                {searchTerm ? 'Search results' : 'Popular this week'}
+              </h3>
+              <span className="text-[11px] text-spotify-subtext">{searchTerm ? 2 : 4} tracks</span>
+            </div>
+          </div>
+        </section>
+
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.2fr_0.8fr]">
           <section className="rounded-3xl border border-spotify-border bg-spotify-surface p-6 shadow-xl shadow-black/20">
             <div className="flex items-center justify-between">
