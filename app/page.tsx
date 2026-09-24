@@ -1,9 +1,9 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSpotifyAuth } from '@/hooks/useSpotifyAuth';
-import { useSpotifyPlayer } from '@/hooks/useSpotifyPlayer';
 import { QueueDrawer, QueueItem } from '@/components/QueueDrawer';
+import { useBeatzStore } from '@/store/beatz-store';
 import {
   Music,
   Sparkles,
@@ -36,14 +36,50 @@ function formatDuration(durationMs: number): string {
 }
 
 export default function Home() {
-  const { isAuthenticated, isLoading, user, login, logout, accessToken } = useSpotifyAuth();
+  const { isAuthenticated, isLoading, user, login, logout } = useSpotifyAuth();
   const [isQueueOpen, setIsQueueOpen] = useState(false);
   const [selectedTrackId, setSelectedTrackId] = useState('midnight-city');
 
-  const { isReady, isPlaying, progressMs, durationMs, volume, currentTrack, togglePlay, nextTrack, previousTrack, setVolume, seekTo } = useSpotifyPlayer({
-    accessToken,
-    enabled: isAuthenticated,
-  });
+  const {
+    currentTrack,
+    queue,
+    isPlaying,
+    progressMs,
+    durationMs,
+    volume,
+    isReady,
+    adState,
+    togglePlay,
+    nextTrack,
+    previousTrack,
+    setVolume,
+    seekTo,
+    tickPlayer,
+    triggerAdBreak,
+    finishAdBreak,
+  } = useBeatzStore();
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      tickPlayer();
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [tickPlayer]);
+
+  useEffect(() => {
+    if (!isPlaying || adState.isAdPlaying) {
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      if (Math.random() > 0.25) {
+        triggerAdBreak();
+      }
+    }, 20000 + Math.random() * 20000);
+
+    return () => clearTimeout(timeout);
+  }, [isPlaying, adState.isAdPlaying, triggerAdBreak]);
 
   const queueSummary = useMemo(() => {
     const selected = queueTracks.find((track) => track.id === selectedTrackId) ?? queueTracks[0];
@@ -51,24 +87,23 @@ export default function Home() {
   }, [selectedTrackId]);
 
   const nowPlaying = useMemo(() => {
-    if (currentTrack && isReady) {
-      return {
-        title: currentTrack.name,
-        artist: currentTrack.artists[0]?.name ?? 'Spotify artist',
-        duration: formatDuration(currentTrack.durationMs),
-      };
+    const track = currentTrack ?? queue.currentlyPlaying ?? queue.upcomingTracks[0];
+
+    if (!track) {
+      return { title: 'No track selected', artist: 'Beatz AI', duration: '0:00' };
     }
 
     return {
-      title: queueSummary.title,
-      artist: queueSummary.artist,
-      duration: queueSummary.duration,
+      title: track.name,
+      artist: track.artists[0]?.name ?? 'Spotify artist',
+      duration: formatDuration(track.durationMs),
     };
-  }, [currentTrack, isReady, queueSummary]);
+  }, [currentTrack, queue]);
 
   const progress = durationMs > 0 ? Math.min((progressMs / durationMs) * 100, 100) : 38;
   const currentProgressLabel = formatDuration(progressMs);
   const durationLabel = formatDuration(durationMs || 232000);
+  const adTimeRemaining = Math.max(0, adState.adDurationMs - adState.adProgressMs);
 
   if (isLoading) {
     return (
@@ -181,13 +216,49 @@ export default function Home() {
       </header>
 
       <main className="flex-1 space-y-8 overflow-y-auto p-6 lg:p-8">
+        {adState.isAdPlaying && (
+          <div className="rounded-2xl border border-rose-500/40 bg-rose-500/10 p-4 shadow-lg shadow-rose-950/20">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.2em] text-rose-300">Ad break in progress</p>
+                <h3 className="mt-1 text-lg font-bold text-white">Premium message: “Go Beatz Premium for $12.99/mo”</h3>
+              </div>
+              <span className="rounded-full border border-rose-400/40 bg-rose-500/10 px-3 py-1 text-sm font-semibold text-rose-100">
+                {formatDuration(adTimeRemaining)} remaining
+              </span>
+            </div>
+
+            <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-rose-950/40">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-rose-400 to-orange-300"
+                style={{ width: `${(adState.adProgressMs / adState.adDurationMs) * 100}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        {!adState.isAdPlaying && (
+          <div className="flex items-center justify-between gap-4 rounded-2xl border border-spotify-border bg-spotify-surface p-4">
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.2em] text-spotify-subtext">Ad scheduler</p>
+              <h3 className="mt-1 text-lg font-bold text-white">3–5 ad breaks per hour</h3>
+            </div>
+            <button
+              onClick={() => triggerAdBreak()}
+              className="rounded-full bg-spotify-green px-4 py-2 text-sm font-semibold text-black transition hover:bg-spotify-green-hover"
+            >
+              Simulate ad break
+            </button>
+          </div>
+        )}
+
         {user?.product !== 'premium' && (
           <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-300">
             <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
             <div>
               <p className="font-semibold">Spotify Free Account Detected</p>
               <p className="mt-1 text-xs text-amber-400/80">
-                Day 3 keeps the queue drawer interactive while the Web Playback SDK remains ready for later device activation.
+                Day 4 keeps playback and queue orchestration in the Zustand store while the SDK remains ready for the premium path.
               </p>
             </div>
           </div>
@@ -244,7 +315,14 @@ export default function Home() {
                     <SkipBack className="h-5 w-5" />
                   </button>
                   <button
-                    onClick={togglePlay}
+                    onClick={() => {
+                      if (adState.isAdPlaying) {
+                        finishAdBreak();
+                        return;
+                      }
+
+                      togglePlay();
+                    }}
                     className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-black shadow-lg shadow-white/20 transition hover:scale-105"
                     aria-label={isPlaying ? 'Pause playback' : 'Play playback'}
                   >
@@ -264,31 +342,31 @@ export default function Home() {
           <aside className="rounded-3xl border border-spotify-border bg-spotify-surface p-5 shadow-xl shadow-black/20">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-bold text-white">Up next</h3>
-              <span className="text-[11px] text-spotify-subtext">{queueTracks.length} tracks</span>
+              <span className="text-[11px] text-spotify-subtext">{queue.upcomingTracks.length + 1} tracks</span>
             </div>
 
             <div className="mt-4 space-y-3">
-              {queueTracks.map((track, index) => (
+              {[queue.currentlyPlaying, ...queue.upcomingTracks].filter(Boolean).map((track, index) => (
                 <button
-                  key={track.id}
+                  key={track?.id ?? index}
                   onClick={() => {
-                    setSelectedTrackId(track.id);
+                    setSelectedTrackId(track?.id ?? queueSummary.id);
                     setIsQueueOpen(false);
                   }}
                   className={`flex w-full items-center justify-between rounded-2xl border p-3 text-left transition ${
-                    track.id === selectedTrackId ? 'border-spotify-green/50 bg-spotify-green/10' : 'border-spotify-border bg-spotify-elevated/60 hover:border-spotify-green/30'
+                    track?.id === selectedTrackId ? 'border-spotify-green/50 bg-spotify-green/10' : 'border-spotify-border bg-spotify-elevated/60 hover:border-spotify-green/30'
                   }`}
                 >
                   <div className="flex min-w-0 items-center gap-3">
-                    <div className={`flex h-9 w-9 items-center justify-center rounded-lg text-[11px] font-bold ${track.accent}`}>
+                    <div className={`flex h-9 w-9 items-center justify-center rounded-lg text-[11px] font-bold ${queueTracks[index % queueTracks.length].accent}`}>
                       {index + 1}
                     </div>
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-white">{track.title}</p>
-                      <p className="truncate text-[11px] text-spotify-subtext">{track.artist}</p>
+                      <p className="truncate text-sm font-medium text-white">{track?.name}</p>
+                      <p className="truncate text-[11px] text-spotify-subtext">{track?.artists[0]?.name}</p>
                     </div>
                   </div>
-                  <span className="text-[11px] text-zinc-300">{track.duration}</span>
+                  <span className="text-[11px] text-zinc-300">{formatDuration(track?.durationMs ?? 0)}</span>
                 </button>
               ))}
             </div>
@@ -309,10 +387,10 @@ export default function Home() {
           </div>
 
           <div className="rounded-2xl border border-spotify-border bg-spotify-surface p-5">
-            <p className="text-[11px] uppercase tracking-[0.2em] text-spotify-subtext">SDK bridge</p>
-            <h3 className="mt-4 text-xl font-bold text-white">{isReady ? 'Device ready' : 'Bridge warming'}</h3>
+            <p className="text-[11px] uppercase tracking-[0.2em] text-spotify-subtext">SDK + store</p>
+            <h3 className="mt-4 text-xl font-bold text-white">{isReady ? 'State healthy' : 'Bridge warming'}</h3>
             <p className="mt-2 text-sm text-spotify-subtext">
-              {isReady ? 'Spotify playback is connected to a ready device.' : 'Player is booting and waiting for SDK activation.'}
+              {adState.isAdPlaying ? `Ad break ${adState.adIndex} underway` : 'Player state and ad scheduler are synced via Zustand.'}
             </p>
           </div>
         </div>
@@ -332,7 +410,7 @@ export default function Home() {
         <div className="flex max-w-xl flex-1 flex-col items-center gap-1.5 px-6">
           <div className="flex items-center gap-5 text-zinc-300">
             <button onClick={previousTrack} className="transition hover:text-white"><SkipBack className="h-4 w-4" /></button>
-            <button onClick={togglePlay} className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-black transition hover:scale-105">
+            <button onClick={() => (adState.isAdPlaying ? finishAdBreak() : togglePlay())} className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-black transition hover:scale-105">
               {isPlaying ? <Pause className="h-4 w-4 fill-current" /> : <Play className="h-4 w-4 fill-current ml-0.5" />}
             </button>
             <button onClick={nextTrack} className="transition hover:text-white"><SkipForward className="h-4 w-4" /></button>
