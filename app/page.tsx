@@ -3,6 +3,10 @@
 import { useSpotifyAuth } from '@/hooks/useSpotifyAuth';
 import { Music, Sparkles, ListMusic, Play, LogOut, CheckCircle2, AlertCircle } from 'lucide-react';
 
+import TrackSearch from '@/components/TrackSearch';
+import PlayerBar from '@/components/PlayerBar';
+import QueueDrawer from '@/components/QueueDrawer';
+
 export default function Home() {
   const { isAuthenticated, isLoading, user, login, logout } = useSpotifyAuth();
 
@@ -66,18 +70,18 @@ export default function Home() {
     );
   }
 
-  // Authenticated View: Base Application Shell (Day 1 Layout)
+  // Authenticated View: Base Application Shell (Day 2 Active Layout)
   return (
     <div className="flex h-screen flex-col bg-spotify-dark text-white select-none">
       {/* Top Navigation Header */}
-      <header className="h-16 border-b border-spotify-border bg-spotify-surface/80 backdrop-blur px-6 flex items-center justify-between z-10">
+      <header className="h-16 border-b border-spotify-border bg-spotify-surface/80 backdrop-blur px-6 flex items-center justify-between z-10 shrink-0">
         <div className="flex items-center gap-3">
           <div className="h-9 w-9 rounded-lg bg-spotify-green flex items-center justify-center">
             <Music className="h-5 w-5 text-black" />
           </div>
           <span className="font-bold text-lg tracking-tight">BEATZ</span>
           <span className="text-[11px] bg-spotify-elevated text-spotify-green px-2 py-0.5 rounded-full font-mono font-medium border border-spotify-highlight">
-            Day 1 Shell
+            Day 2 Active
           </span>
         </div>
 
@@ -123,7 +127,7 @@ export default function Home() {
             <div>
               <p className="font-semibold">Spotify Free Account Detected</p>
               <p className="text-xs text-amber-400/80 mt-1">
-                You can search tracks, organize queues, and converse with Beatz AI! Direct in-browser audio streaming requires an active Spotify Premium account due to Spotify SDK API restrictions.
+                You can search tracks, organize queues, and converse with Beatz AI! Direct in-browser audio streaming requires an active Spotify Premium account due to Spotify SDK API restrictions. Audio previews are supported for instant listening.
               </p>
             </div>
           </div>
@@ -132,11 +136,14 @@ export default function Home() {
         <div className="space-y-2">
           <h2 className="text-3xl font-extrabold text-white">Welcome back, {user?.displayName || 'Listener'}</h2>
           <p className="text-sm text-spotify-subtext">
-            Day 1 backend authentication is successfully connected to Spotify OAuth 2.0 PKCE.
+            Search tracks and organize your active queue below.
           </p>
         </div>
 
-        {/* Feature Cards Grid (Day 1 Preview) */}
+        {/* Live Search & Queue Orchestration Component */}
+        <TrackSearch />
+
+        {/* Feature Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-spotify-surface border border-spotify-border p-6 rounded-2xl space-y-3">
             <div className="h-10 w-10 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold">
@@ -170,37 +177,11 @@ export default function Home() {
         </div>
       </main>
 
-      {/* Persistent Bottom Player Dock Placeholder (Handoff for Erick - Day 2) */}
-      <footer className="h-24 border-t border-spotify-border bg-spotify-surface px-6 flex items-center justify-between text-xs text-spotify-subtext">
-        <div className="flex items-center gap-3">
-          <div className="h-14 w-14 rounded-lg bg-spotify-elevated flex items-center justify-center text-zinc-500">
-            <Music className="h-6 w-6" />
-          </div>
-          <div>
-            <p className="font-semibold text-white">Player Bar Ready for Day 2</p>
-            <p className="text-[11px] text-spotify-subtext">Erick will mount sticky transport controls & scrubber here</p>
-          </div>
-        </div>
+      {/* Slide-Over Queue Drawer */}
+      <QueueDrawer />
 
-        <div className="flex flex-col items-center gap-1.5 w-1/3">
-          <div className="flex items-center gap-4 text-zinc-400">
-            <span>⏮</span>
-            <button className="h-8 w-8 rounded-full bg-white text-black flex items-center justify-center hover:scale-105 transition">
-              ▶
-            </button>
-            <span>⏭</span>
-          </div>
-          <div className="w-full bg-spotify-elevated h-1 rounded-full overflow-hidden">
-            <div className="bg-spotify-green h-full w-1/4 rounded-full" />
-          </div>
-        </div>
-
-        <div className="flex items-center gap-4">
-          <span className="text-[11px] bg-spotify-elevated px-3 py-1 rounded-full border border-spotify-highlight text-spotify-green">
-            OAuth Session Active
-          </span>
-        </div>
-      </footer>
+      {/* Persistent Bottom Player Bar */}
+      <PlayerBar />
     </div>
   );
 }
