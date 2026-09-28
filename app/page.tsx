@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useSpotifyAuth } from '@/hooks/useSpotifyAuth';
+import { useSpotifySearch } from '@/hooks/useSpotifySearch';
 import { QueueDrawer } from '@/components/QueueDrawer';
 import BeatzChatDrawer from '@/components/BeatzChatDrawer';
 import { useBeatzStore } from '@/store/beatz-store';
@@ -20,6 +21,9 @@ import {
   Pause,
   Heart,
   Volume2,
+  Plus,
+  Check,
+  Loader2,
 } from 'lucide-react';
 
 function formatDuration(durationMs: number): string {
@@ -31,7 +35,8 @@ function formatDuration(durationMs: number): string {
 
 export default function Home() {
   const { isAuthenticated, isLoading, user, login, logout } = useSpotifyAuth();
-  const [searchTerm, setSearchTerm] = useState('');
+  const { query: searchQuery, setQuery: setSearchQuery, results: searchResults, isSearching } = useSpotifySearch();
+  const [addedTrackId, setAddedTrackId] = useState<string | null>(null);
 
   const {
     currentTrack,
@@ -56,7 +61,15 @@ export default function Home() {
     setQueueOpen,
     setChatOpen,
     playTrack,
+    addToQueue,
   } = useBeatzStore();
+
+  const handleAddToQueue = (e: React.MouseEvent, track: any) => {
+    e.stopPropagation();
+    addToQueue(track);
+    setAddedTrackId(track.id);
+    setTimeout(() => setAddedTrackId(null), 1500);
+  };
 
   // Tick the player time forward every second
   useEffect(() => {
@@ -96,18 +109,17 @@ export default function Home() {
     };
   }, [currentTrack, queue]);
 
-  const filteredSearchResults = useMemo(() => {
-    const query = searchTerm.trim().toLowerCase();
-
-    if (!query) {
-      return MOCK_TRACKS.slice(0, 4);
+  const displayTracks = useMemo(() => {
+    if (searchResults.length > 0) return searchResults;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      return MOCK_TRACKS.filter((track) => {
+        const trackText = `${track.name} ${track.artists.map((artist) => artist.name).join(' ')}`.toLowerCase();
+        return trackText.includes(q);
+      });
     }
-
-    return MOCK_TRACKS.filter((track) => {
-      const trackText = `${track.name} ${track.artists.map((artist) => artist.name).join(' ')}`.toLowerCase();
-      return trackText.includes(query);
-    });
-  }, [searchTerm]);
+    return MOCK_TRACKS;
+  }, [searchResults, searchQuery]);
 
   const progressPercent = durationMs > 0 ? Math.min((progressMs / durationMs) * 100, 100) : 0;
   const currentProgressLabel = formatDuration(progressMs);
@@ -309,57 +321,94 @@ export default function Home() {
         )}
 
         <section className="rounded-3xl border border-spotify-border bg-spotify-surface p-5 shadow-xl shadow-black/20">
-          <div className="flex items-center gap-3 rounded-2xl border border-spotify-highlight bg-spotify-elevated px-4 py-3">
-            <Search className="h-4 w-4 text-spotify-subtext" />
+          <div className="relative flex items-center gap-3 rounded-2xl border border-spotify-highlight bg-spotify-elevated px-4 py-3">
+            <Search className="h-4 w-4 text-spotify-subtext shrink-0" />
             <input
               type="text"
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder="Search the Beatz library"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search songs, artists, or albums (e.g. The Weeknd, Dua Lipa, Ed Sheeran)..."
               className="w-full bg-transparent text-sm text-white placeholder:text-spotify-subtext outline-none"
             />
+            {isSearching && (
+              <Loader2 className="h-4 w-4 text-spotify-green animate-spin shrink-0" />
+            )}
           </div>
 
           <div className="mt-5 space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-zinc-200">
-                {searchTerm ? 'Search results' : 'Popular this week'}
+                {searchQuery ? `Search results for "${searchQuery}"` : '🔥 Popular this week'}
               </h3>
-              <span className="text-[11px] text-spotify-subtext">{filteredSearchResults.length} tracks</span>
+              <span className="text-[11px] text-spotify-subtext font-mono">{displayTracks.length} tracks</span>
             </div>
 
             <div className="grid gap-3 md:grid-cols-2">
-              {filteredSearchResults.map((track) => (
-                <button
-                  key={track.id}
-                  type="button"
-                  onClick={() => playTrack(track)}
-                  className="flex items-center justify-between rounded-2xl border border-spotify-border bg-spotify-elevated/60 p-3 text-left transition hover:border-spotify-green/40 hover:bg-spotify-elevated"
-                >
-                  <div className="flex min-w-0 items-center gap-3">
-                    <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl bg-spotify-green/15 text-spotify-green">
-                      {track.album?.images?.[0]?.url ? (
-                        <img src={track.album.images[0].url} alt={track.name} className="h-full w-full object-cover" />
-                      ) : (
-                        <Music className="h-5 w-5" />
-                      )}
+              {displayTracks.map((track) => {
+                const isJustAdded = addedTrackId === track.id;
+                return (
+                  <div
+                    key={track.id}
+                    onClick={() => playTrack(track)}
+                    className="flex items-center justify-between rounded-2xl border border-spotify-border bg-spotify-elevated/60 p-3 text-left transition hover:border-spotify-green/40 hover:bg-spotify-elevated cursor-pointer group"
+                  >
+                    <div className="flex min-w-0 items-center gap-3 flex-1">
+                      <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl bg-spotify-green/15 text-spotify-green shrink-0">
+                        {track.album?.images?.[0]?.url ? (
+                          <img src={track.album.images[0].url} alt={track.name} className="h-full w-full object-cover" />
+                        ) : (
+                          <Music className="h-5 w-5" />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-white group-hover:text-spotify-green transition">{track.name}</p>
+                        <p className="truncate text-[11px] text-spotify-subtext">
+                          {track.artists.map((artist: any) => artist.name).join(', ')}
+                        </p>
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-white">{track.name}</p>
-                      <p className="truncate text-[11px] text-spotify-subtext">
-                        {track.artists.map((artist) => artist.name).join(', ')}
-                      </p>
-                    </div>
-                  </div>
 
-                  <div className="flex items-center gap-3 text-[11px] text-zinc-300">
-                    <span>{formatDuration(track.durationMs)}</span>
-                    <span className="rounded-full border border-spotify-highlight bg-spotify-surface px-2 py-0.5 text-spotify-green">
-                      {track.artists[0]?.name || 'Artist'}
-                    </span>
+                    <div className="flex items-center gap-2 pl-3 shrink-0">
+                      <span className="text-[11px] text-zinc-400 font-mono hidden sm:inline">
+                        {formatDuration(track.durationMs)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={(e) => handleAddToQueue(e, track)}
+                        className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition ${
+                          isJustAdded
+                            ? 'bg-spotify-green text-black font-semibold'
+                            : 'bg-spotify-highlight text-zinc-300 hover:bg-white hover:text-black'
+                        }`}
+                        title="Add to upcoming queue"
+                      >
+                        {isJustAdded ? (
+                          <>
+                            <Check className="h-3 w-3" />
+                            <span>Added</span>
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="h-3 w-3" />
+                            <span>Queue</span>
+                          </>
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          playTrack(track);
+                        }}
+                        className="rounded-full bg-white text-black p-1.5 transition hover:scale-105 active:scale-95 shadow-md shadow-white/10"
+                        title="Play immediately"
+                      >
+                        <Play className="h-3.5 w-3.5 fill-black ml-0.5" />
+                      </button>
+                    </div>
                   </div>
-                </button>
-              ))}
+                );
+              })}
             </div>
           </div>
         </section>
