@@ -4,8 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSpotifyAuth } from '@/hooks/useSpotifyAuth';
 import { QueueDrawer } from '@/components/QueueDrawer';
 import BeatzChatDrawer from '@/components/BeatzChatDrawer';
-import TrackSearch from '@/components/TrackSearch';
 import { useBeatzStore } from '@/store/beatz-store';
+import { MOCK_TRACKS } from '@/lib/spotify';
 import {
   Music,
   Sparkles,
@@ -31,6 +31,7 @@ function formatDuration(durationMs: number): string {
 
 export default function Home() {
   const { isAuthenticated, isLoading, user, login, logout } = useSpotifyAuth();
+  const [searchTerm, setSearchTerm] = useState('');
 
   const {
     currentTrack,
@@ -94,6 +95,19 @@ export default function Home() {
       duration: formatDuration(track.durationMs),
     };
   }, [currentTrack, queue]);
+
+  const filteredSearchResults = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+
+    if (!query) {
+      return MOCK_TRACKS.slice(0, 4);
+    }
+
+    return MOCK_TRACKS.filter((track) => {
+      const trackText = `${track.name} ${track.artists.map((artist) => artist.name).join(' ')}`.toLowerCase();
+      return trackText.includes(query);
+    });
+  }, [searchTerm]);
 
   const progressPercent = durationMs > 0 ? Math.min((progressMs / durationMs) * 100, 100) : 0;
   const currentProgressLabel = formatDuration(progressMs);
@@ -294,8 +308,61 @@ export default function Home() {
           </div>
         )}
 
-        {/* Live Search & Popular Tracks Catalog */}
-        <TrackSearch />
+        <section className="rounded-3xl border border-spotify-border bg-spotify-surface p-5 shadow-xl shadow-black/20">
+          <div className="flex items-center gap-3 rounded-2xl border border-spotify-highlight bg-spotify-elevated px-4 py-3">
+            <Search className="h-4 w-4 text-spotify-subtext" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="Search the Beatz library"
+              className="w-full bg-transparent text-sm text-white placeholder:text-spotify-subtext outline-none"
+            />
+          </div>
+
+          <div className="mt-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-zinc-200">
+                {searchTerm ? 'Search results' : 'Popular this week'}
+              </h3>
+              <span className="text-[11px] text-spotify-subtext">{filteredSearchResults.length} tracks</span>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2">
+              {filteredSearchResults.map((track) => (
+                <button
+                  key={track.id}
+                  type="button"
+                  onClick={() => playTrack(track)}
+                  className="flex items-center justify-between rounded-2xl border border-spotify-border bg-spotify-elevated/60 p-3 text-left transition hover:border-spotify-green/40 hover:bg-spotify-elevated"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl bg-spotify-green/15 text-spotify-green">
+                      {track.album?.images?.[0]?.url ? (
+                        <img src={track.album.images[0].url} alt={track.name} className="h-full w-full object-cover" />
+                      ) : (
+                        <Music className="h-5 w-5" />
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-white">{track.name}</p>
+                      <p className="truncate text-[11px] text-spotify-subtext">
+                        {track.artists.map((artist) => artist.name).join(', ')}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 text-[11px] text-zinc-300">
+                    <span>{formatDuration(track.durationMs)}</span>
+                    <span className="rounded-full border border-spotify-highlight bg-spotify-surface px-2 py-0.5 text-spotify-green">
+                      {track.artists[0]?.name || 'Artist'}
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
 
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.2fr_0.8fr]">
           <section className="rounded-3xl border border-spotify-border bg-spotify-surface p-6 shadow-xl shadow-black/20">
