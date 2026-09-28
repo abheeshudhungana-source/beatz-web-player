@@ -499,50 +499,6 @@ export default function Home() {
           </aside>
         </div>
 
-        {/* Value Prop & Vibe Cards */}
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-          <div className="rounded-2xl border border-spotify-border bg-spotify-surface p-5">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-spotify-subtext">
-              Current Vibe
-            </p>
-            <h3 className="mt-3 text-lg font-bold text-white">On-Demand Freedom</h3>
-            <p className="mt-1 text-xs text-spotify-subtext leading-relaxed">
-              Play any track without forced mobile shuffle or 6-skip lockouts.
-            </p>
-          </div>
-
-          <div
-            onClick={() => setChatOpen(true)}
-            className="rounded-2xl border border-spotify-green/40 bg-gradient-to-b from-spotify-green/10 to-spotify-surface p-5 cursor-pointer hover:border-spotify-green transition group"
-          >
-            <div className="flex items-center justify-between">
-              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-spotify-green flex items-center gap-1.5">
-                <Sparkles className="h-3 w-3" /> Live Day 5
-              </p>
-              <span className="text-[10px] bg-spotify-green text-black font-bold px-2 py-0.5 rounded-full shadow-sm group-hover:scale-105 transition">
-                Try Now
-              </span>
-            </div>
-            <h3 className="mt-3 text-lg font-bold text-white group-hover:text-spotify-green transition">
-              Beatz AI Co-Pilot
-            </h3>
-            <p className="mt-1 text-xs text-spotify-subtext leading-relaxed">
-              Gemini-powered chatbot with native tool-calling to manipulate your queue in real time. Tap to open!
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-spotify-border bg-spotify-surface p-5">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-spotify-subtext">
-              Store &amp; SDK Status
-            </p>
-            <h3 className="mt-3 text-lg font-bold text-white">
-              {isReady ? 'State Synchronized' : 'Initializing'}
-            </h3>
-            <p className="mt-1 text-xs text-spotify-subtext leading-relaxed">
-              Zustand player store, queue manager, and ad scheduler are unified across Day 1–4 specs.
-            </p>
-          </div>
-        </div>
       </main>
 
       {/* Sticky Bottom Player Bar */}
