@@ -6,12 +6,15 @@ import { useBeatzStore } from '@/lib/store';
 import { Search, Plus, Play, Check, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { SpotifyTrack } from '@/types/spotify';
+import { MOCK_TRACKS } from '@/lib/spotify';
 
 export default function TrackSearch() {
   const { query, setQuery, results, isSearching } = useSpotifySearch();
   const { addToQueue } = useSpotifyQueue();
   const playTrack = useBeatzStore((state) => state.playTrack);
   const [addedTrackId, setAddedTrackId] = useState<string | null>(null);
+
+  const displayTracks = results.length > 0 ? results : (query.trim() === '' ? MOCK_TRACKS : []);
 
   const handleAdd = (track: SpotifyTrack) => {
     addToQueue(track);
@@ -25,7 +28,7 @@ export default function TrackSearch() {
         <div>
           <h3 className="text-xl font-bold text-white">Search &amp; Queue Songs</h3>
           <p className="text-xs text-spotify-subtext">
-            Search Spotify&apos;s catalog and add songs directly to your queue.
+            Search Spotify&apos;s catalog or pick from popular hits below.
           </p>
         </div>
       </div>
@@ -45,10 +48,21 @@ export default function TrackSearch() {
         )}
       </div>
 
-      {/* Search Results Grid */}
-      {results.length > 0 && (
-        <div className="bg-spotify-surface border border-spotify-border rounded-2xl p-4 divide-y divide-spotify-border/40">
-          {results.map((track) => {
+      {/* Search Results Grid / Popular Catalog */}
+      {displayTracks.length > 0 && (
+        <div className="bg-spotify-surface border border-spotify-border rounded-2xl p-4 divide-y divide-spotify-border/40 shadow-xl shadow-black/20">
+          <div className="pb-3 px-2 flex items-center justify-between text-xs font-semibold text-zinc-300">
+            <span>
+              {results.length > 0
+                ? `Search results for "${query}" (${results.length} found)`
+                : '🔥 Popular This Week (Tap Play or Add to Queue)'}
+            </span>
+            <span className="text-[11px] text-spotify-subtext font-mono">
+              {displayTracks.length} tracks
+            </span>
+          </div>
+
+          {displayTracks.map((track) => {
             const isJustAdded = addedTrackId === track.id;
             return (
               <div

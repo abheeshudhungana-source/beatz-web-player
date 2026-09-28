@@ -31,7 +31,6 @@ function formatDuration(durationMs: number): string {
 
 export default function Home() {
   const { isAuthenticated, isLoading, user, login, logout } = useSpotifyAuth();
-  const [searchTerm, setSearchTerm] = useState('');
 
   const {
     currentTrack,
@@ -298,27 +297,8 @@ export default function Home() {
           </div>
         )}
 
-        <section className="rounded-3xl border border-spotify-border bg-spotify-surface p-5 shadow-xl shadow-black/20">
-          <div className="flex items-center gap-3 rounded-2xl border border-spotify-highlight bg-spotify-elevated px-4 py-3">
-            <Search className="h-4 w-4 text-spotify-subtext" />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder="Search the Beatz library"
-              className="w-full bg-transparent text-sm text-white placeholder:text-spotify-subtext outline-none"
-            />
-          </div>
-
-          <div className="mt-5 space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-zinc-200">
-                {searchTerm ? 'Search results' : 'Popular this week'}
-              </h3>
-              <span className="text-[11px] text-spotify-subtext">{searchTerm ? 2 : 4} tracks</span>
-            </div>
-          </div>
-        </section>
+        {/* Live Search & Popular Tracks Catalog */}
+        <TrackSearch />
 
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.2fr_0.8fr]">
           <section className="rounded-3xl border border-spotify-border bg-spotify-surface p-6 shadow-xl shadow-black/20">
@@ -465,9 +445,6 @@ export default function Home() {
             </button>
           </aside>
         </div>
-
-        {/* Live Track Search & Queue Addition Component */}
-        <TrackSearch />
 
         {/* Value Prop & Vibe Cards */}
         <div className="grid grid-cols-1 gap-6 md:grid-cols-3">

@@ -154,7 +154,14 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
     const state = get();
     const queue = state.queue.upcomingTracks;
 
-    if (queue.length === 0) return;
+    if (queue.length === 0) {
+      // If queue is empty, cycle to the next song in catalog so the player never gets stuck
+      const allTracks = MOCK_TRACKS;
+      const currentIndex = allTracks.findIndex((t) => t.id === state.currentTrack?.id);
+      const nextIndex = (currentIndex + 1) % allTracks.length;
+      get().playTrack(allTracks[nextIndex]);
+      return;
+    }
 
     const [next, ...rest] = queue;
     if (typeof window !== 'undefined' && previewAudio) {
@@ -182,16 +189,15 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
 
   previousTrack: () => {
     const state = get();
-    const current = state.currentTrack;
-    if (!current) return;
-
-    if (typeof window !== 'undefined' && previewAudio) {
-      previewAudio.currentTime = 0;
+    if (state.progressMs > 3000) {
+      get().seekTo(0);
+      return;
     }
-    set({
-      progressMs: 0,
-      isPlaying: true,
-    });
+
+    const allTracks = MOCK_TRACKS;
+    const currentIndex = allTracks.findIndex((t) => t.id === state.currentTrack?.id);
+    const prevIndex = (currentIndex - 1 + allTracks.length) % allTracks.length;
+    get().playTrack(allTracks[prevIndex]);
   },
 
   setVolume: (value) => {

@@ -260,9 +260,13 @@ export async function getQueue(accessToken: string | null): Promise<QueueState> 
   );
 
   if (res.data) {
+    const rawQueue = res.data.queue || [];
+    const upcomingTracks = rawQueue.map(mapSpotifyTrackDto);
     return {
-      currentlyPlaying: res.data.currently_playing ? mapSpotifyTrackDto(res.data.currently_playing) : null,
-      upcomingTracks: (res.data.queue || []).map(mapSpotifyTrackDto),
+      currentlyPlaying: res.data.currently_playing
+        ? mapSpotifyTrackDto(res.data.currently_playing)
+        : (upcomingTracks[0] || MOCK_TRACKS[0]),
+      upcomingTracks: upcomingTracks.length > 0 ? upcomingTracks : MOCK_TRACKS.slice(1),
       isLoading: false,
       error: null,
     };
