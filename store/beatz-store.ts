@@ -236,8 +236,7 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: nextIsPlaying ? 'play' : 'pause',
-          uri: currentTrack?.uri,
+          action: nextIsPlaying ? 'resume' : 'pause',
           deviceId: sdkDeviceId,
         }),
       }).catch(() => {});
@@ -263,7 +262,7 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
         fetch('/api/spotify/player', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'play', uri: currentTrack.uri }),
+          body: JSON.stringify({ action: 'resume' }),
         }).catch(() => {});
       } else {
         previewAudio.pause();

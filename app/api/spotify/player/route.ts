@@ -34,12 +34,12 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 2. Play Track on Specific Device or Active Session
-    if (action === 'play') {
+    // 2. Play a selected track or resume the current position
+    if (action === 'play' || action === 'resume') {
       const endpoint = deviceId
         ? `/me/player/play?device_id=${encodeURIComponent(deviceId)}`
         : '/me/player/play';
-      const payload: any = uri ? { uris: [uri] } : {};
+      const payload: any = action === 'play' && uri ? { uris: [uri] } : {};
       const res = await spotifyFetch<void>(
         endpoint,
         {
