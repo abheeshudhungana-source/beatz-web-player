@@ -184,16 +184,13 @@ export default function Home() {
             <span>Queue ({queue.upcomingTracks.length})</span>
           </button>
 
-          <div className="hidden min-w-[220px] items-center gap-2 rounded-full border border-spotify-highlight bg-spotify-elevated px-3 py-1.5 text-spotify-subtext sm:flex">
-            <Search className="h-3.5 w-3.5" />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder="Search tracks or artists"
-              className="w-full bg-transparent text-xs text-white placeholder:text-spotify-subtext outline-none"
-            />
-          </div>
+          <button
+            onClick={() => setChatOpen(true)}
+            className="flex items-center gap-1.5 rounded-full border border-spotify-green/30 bg-spotify-green/10 px-3 py-1.5 text-xs text-spotify-green font-medium transition hover:bg-spotify-green hover:text-black"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            <span>Beatz AI</span>
+          </button>
 
           <div className="flex items-center gap-3 rounded-full border border-spotify-highlight bg-spotify-elevated py-1.5 px-3">
             {user?.images?.[0]?.url ? (
