@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSpotifyAuth } from '@/hooks/useSpotifyAuth';
 import { useSpotifySearch } from '@/hooks/useSpotifySearch';
+import { useSpotifyPlayer } from '@/hooks/useSpotifyPlayer';
 import { QueueDrawer } from '@/components/QueueDrawer';
 import BeatzChatDrawer from '@/components/BeatzChatDrawer';
 import { useBeatzStore } from '@/store/beatz-store';
@@ -34,7 +35,7 @@ function formatDuration(durationMs: number): string {
 }
 
 export default function Home() {
-  const { isAuthenticated, isLoading, user, login, logout } = useSpotifyAuth();
+  const { isAuthenticated, isLoading, user, accessToken, login, logout } = useSpotifyAuth();
   const { query: searchQuery, setQuery: setSearchQuery, results: searchResults, isSearching } = useSpotifySearch();
   const [addedTrackId, setAddedTrackId] = useState<string | null>(null);
   const activeUser = user ?? {
@@ -42,6 +43,15 @@ export default function Home() {
     product: 'premium',
     images: [],
   };
+
+  // Mount the official Spotify Web Playback SDK streaming engine
+  useSpotifyPlayer({
+    accessToken,
+    enabled: isAuthenticated,
+  });
+
+  const isSdkActive = useBeatzStore((state) => state.isSdkActive);
+  const sdkError = useBeatzStore((state) => state.sdkError);
 
   const {
     currentTrack,
@@ -153,9 +163,16 @@ export default function Home() {
             <Music className="h-5 w-5 text-black" />
           </div>
           <span className="text-lg font-bold tracking-tight">BEATZ</span>
-          <span className="rounded-full border border-spotify-highlight bg-spotify-elevated px-2 py-0.5 text-[11px] font-mono font-medium text-spotify-green">
-            Days 1–4 Live
-          </span>
+          {isSdkActive ? (
+            <span className="flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-mono font-medium text-emerald-400">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span>Spotify SDK Active</span>
+            </span>
+          ) : (
+            <span className="flex items-center gap-1.5 rounded-full border border-spotify-highlight bg-spotify-elevated px-2 py-0.5 text-[11px] font-mono font-medium text-spotify-green">
+              <span>Preview Mode</span>
+            </span>
+          )}
         </div>
 
         <div className="flex items-center gap-4">
@@ -276,14 +293,24 @@ export default function Home() {
           </div>
         )}
 
-        {/* Free Tier Notice */}
-        {activeUser.product !== 'premium' && (
+        {/* Playback Mode Banner */}
+        {activeUser.product === 'premium' && isSdkActive ? (
+          <div className="flex items-center justify-between rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3.5 text-xs text-emerald-300">
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+              <p>
+                <strong className="text-white font-semibold">Spotify Premium Active:</strong> Official Web Playback SDK streaming original DRM tracks in your browser.
+              </p>
+            </div>
+            <span className="font-mono text-[10px] text-emerald-400/80 uppercase tracking-wider">Device: Beatz Web Player</span>
+          </div>
+        ) : (
           <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-300">
             <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
             <div>
-              <p className="font-semibold">Spotify Free Account Detected</p>
+              <p className="font-semibold">Spotify Free Account Detected (Audio Preview Mode)</p>
               <p className="mt-1 text-xs text-amber-400/80">
-                You can search tracks, organize queues, and stream instant 30-second audio previews! Full uninterrupted SDK streaming activates for Spotify Premium accounts.
+                Spotify&apos;s DRM requires Spotify Premium for full in-browser streaming. You can search, queue, and enjoy verified audio previews! Full original SDK streaming activates for Spotify Premium accounts.
               </p>
             </div>
           </div>

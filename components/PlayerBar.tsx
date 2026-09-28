@@ -1,7 +1,7 @@
 'use client';
 
 import { useBeatzStore } from '@/store/beatz-store';
-import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, ListMusic, MessageSquare } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, ListMusic, MessageSquare, Laptop2 } from 'lucide-react';
 
 export default function PlayerBar() {
   const currentTrack = useBeatzStore((state) => state.currentTrack);
@@ -9,6 +9,7 @@ export default function PlayerBar() {
   const progressMs = useBeatzStore((state) => state.progressMs);
   const durationMs = useBeatzStore((state) => state.durationMs);
   const volume = useBeatzStore((state) => state.volume);
+  const isSdkActive = useBeatzStore((state) => state.isSdkActive);
   const togglePlay = useBeatzStore((state) => state.togglePlay);
   const nextTrack = useBeatzStore((state) => state.nextTrack);
   const previousTrack = useBeatzStore((state) => state.previousTrack);
@@ -166,6 +167,17 @@ export default function PlayerBar() {
             onChange={(e) => setVolume(parseFloat(e.target.value))}
             className="w-16 h-1 bg-spotify-elevated rounded-full appearance-none cursor-pointer accent-spotify-green"
           />
+        </div>
+
+        {/* Active Device Indicator */}
+        <div
+          title={isSdkActive ? 'Active: Beatz Web Player (Official Spotify SDK)' : 'Audio Preview Mode (Spotify Free)'}
+          className="flex items-center gap-1.5 pl-2 text-zinc-400 border-l border-spotify-border/60"
+        >
+          <Laptop2 className={`h-4 w-4 transition ${isSdkActive ? 'text-spotify-green' : 'text-zinc-500'}`} />
+          <span className={`text-[10px] font-mono hidden xl:inline ${isSdkActive ? 'text-spotify-green' : 'text-zinc-500'}`}>
+            {isSdkActive ? 'SDK Online' : 'Preview'}
+          </span>
         </div>
       </div>
     </footer>

@@ -1,40 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-
-export interface PlayerTrack {
-  id: string;
-  uri: string;
-  name: string;
-  durationMs: number;
-  artists: Array<{ id: string; name: string; uri: string }>;
-  album: {
-    id: string;
-    name: string;
-    uri: string;
-    images: Array<{ url: string; height: number; width: number }>;
-  };
-}
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { useBeatzStore } from '@/store/beatz-store';
+import { SpotifyTrack } from '@/types/spotify';
 
 export interface UseSpotifyPlayerArgs {
   accessToken: string | null;
   enabled: boolean;
-}
-
-export interface UseSpotifyPlayerResult {
-  deviceId: string | null;
-  isReady: boolean;
-  isPlaying: boolean;
-  progressMs: number;
-  durationMs: number;
-  volume: number;
-  currentTrack: PlayerTrack | null;
-  isLoading: boolean;
-  togglePlay: () => void;
-  nextTrack: () => void;
-  previousTrack: () => void;
-  setVolume: (nextVolume: number) => void;
-  seekTo: (positionMs: number) => void;
 }
 
 declare global {
@@ -61,223 +33,178 @@ declare global {
   }
 }
 
-const defaultTrack: PlayerTrack = {
-  id: 'midnight-city',
-  uri: 'spotify:track:midnight-city',
-  name: 'Midnight City',
-  durationMs: 232000,
-  artists: [{ id: 'm83', name: 'M83', uri: 'spotify:artist:m83' }],
-  album: {
-    id: 'midnight-city-album',
-    name: 'Hurry Up, We’re Dreaming',
-    uri: 'spotify:album:midnight-city',
-    images: [{ url: 'https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=900&q=80', height: 640, width: 640 }],
-  },
-};
-
-export function useSpotifyPlayer({ accessToken, enabled }: UseSpotifyPlayerArgs): UseSpotifyPlayerResult {
+export function useSpotifyPlayer({ accessToken, enabled }: UseSpotifyPlayerArgs) {
   const playerRef = useRef<any | null>(null);
-  const [deviceId, setDeviceId] = useState<string | null>(null);
-  const [isReady, setIsReady] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [progressMs, setProgressMs] = useState(100000);
-  const [durationMs, setDurationMs] = useState(defaultTrack.durationMs);
-  const [volume, setVolumeState] = useState(0.5);
-  const [currentTrack, setCurrentTrack] = useState<PlayerTrack | null>(defaultTrack);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(false);
+  const [sdkReady, setSdkReady] = useState(false);
 
-  const setVolume = useCallback(async (nextVolume: number) => {
-    const safeVolume = Math.max(0, Math.min(1, nextVolume));
-    setVolumeState(safeVolume);
+  const {
+    volume,
+    setSdkDeviceId,
+    setSdkActive,
+    setIsPremium,
+    setSdkError,
+    syncSdkState,
+  } = useBeatzStore();
 
-    if (playerRef.current && isReady) {
-      try {
-        await playerRef.current.setVolume(safeVolume);
-      } catch (error) {
-        console.warn('Unable to set Spotify volume:', error);
-      }
-    }
-  }, [isReady]);
-
-  const togglePlay = useCallback(async () => {
-    if (!playerRef.current || !isReady) {
-      setIsPlaying((prev) => !prev);
-      return;
-    }
-
+  const getFreshToken = useCallback(async (callback: (token: string) => void) => {
     try {
-      if (isPlaying) {
-        await playerRef.current.pause();
-      } else {
-        await playerRef.current.resume();
+      const res = await fetch('/api/auth/token');
+      const data = await res.json();
+      if (data.accessToken) {
+        callback(data.accessToken);
+        if (data.user?.product === 'premium') {
+          setIsPremium(true);
+        }
+      } else if (accessToken) {
+        callback(accessToken);
       }
-      setIsPlaying((prev) => !prev);
-    } catch (error) {
-      console.warn('Unable to toggle Spotify playback:', error);
+    } catch {
+      if (accessToken) callback(accessToken);
     }
-  }, [isPlaying, isReady]);
-
-  const nextTrack = useCallback(async () => {
-    if (!playerRef.current || !isReady) {
-      return;
-    }
-
-    try {
-      await playerRef.current.nextTrack();
-    } catch (error) {
-      console.warn('Unable to skip to next track:', error);
-    }
-  }, [isReady]);
-
-  const previousTrack = useCallback(async () => {
-    if (!playerRef.current || !isReady) {
-      return;
-    }
-
-    try {
-      await playerRef.current.previousTrack();
-    } catch (error) {
-      console.warn('Unable to skip to previous track:', error);
-    }
-  }, [isReady]);
-
-  const seekTo = useCallback(async (positionMs: number) => {
-    const safePosition = Math.max(0, Math.min(positionMs, durationMs));
-    setProgressMs(safePosition);
-
-    if (playerRef.current && isReady) {
-      try {
-        await playerRef.current.seek(safePosition);
-      } catch (error) {
-        console.warn('Unable to seek Spotify playback:', error);
-      }
-    }
-  }, [durationMs, isReady]);
+  }, [accessToken, setIsPremium]);
 
   useEffect(() => {
     if (!enabled || !accessToken) {
       return;
     }
 
+    setIsInitializing(true);
+
+    // 1. Inject Spotify Web Playback SDK script tag if not already on page
     const existingScript = document.querySelector('script[data-spotify-sdk="true"]');
-    if (existingScript) {
-      if (window.Spotify) {
-        window.onSpotifyWebPlaybackSDKReady?.();
-      }
-      return;
+    if (!existingScript) {
+      const script = document.createElement('script');
+      script.src = 'https://sdk.scdn.co/spotify-player.js';
+      script.async = true;
+      script.dataset.spotifySdk = 'true';
+      document.body.appendChild(script);
     }
 
-    const script = document.createElement('script');
-    script.src = 'https://sdk.scdn.co/spotify-player.js';
-    script.async = true;
-    script.dataset.spotifySdk = 'true';
-    script.onload = () => {
-      window.onSpotifyWebPlaybackSDKReady?.();
-    };
-    document.body.appendChild(script);
-
-    return () => {
-      script.remove();
-    };
-  }, [accessToken, enabled]);
-
-  useEffect(() => {
-    if (!enabled || !accessToken || !window.Spotify) {
-      return;
-    }
-
-    const bootstrapPlayer = () => {
-      if (playerRef.current) {
+    // 2. Initialize Player instance
+    const initializePlayer = () => {
+      if (playerRef.current || !window.Spotify) {
         return;
       }
 
-      const SpotifyPlayer = window.Spotify;
-      if (!SpotifyPlayer) {
-        return;
-      }
-
-      const player = new SpotifyPlayer.Player({
+      const player = new window.Spotify.Player({
         name: 'Beatz Web Player',
-        getOAuthToken: (cb) => cb(accessToken),
-        volume: volume,
+        getOAuthToken: getFreshToken,
+        volume: volume ?? 0.8,
       });
 
       playerRef.current = player;
 
-      player.addListener('ready', ({ device_id }: { device_id: string }) => {
-        setDeviceId(device_id);
-        setIsReady(true);
-        setIsLoading(false);
-      });
+      // Event: Player successfully registered with Spotify's audio backend
+      player.addListener('ready', async ({ device_id }: { device_id: string }) => {
+        console.log('[Spotify Web SDK] Device ready with ID:', device_id);
+        setSdkDeviceId(device_id);
+        setSdkActive(true);
+        setSdkReady(true);
+        setIsInitializing(false);
+        setSdkError(null);
+        setIsPremium(true);
 
-      player.addListener('not_ready', ({ device_id }: { device_id: string }) => {
-        console.warn('Spotify player not ready on device:', device_id);
-        setIsReady(false);
-      });
-
-      player.addListener('player_state_changed', (state: any) => {
-        if (!state) {
-          return;
+        // Auto-transfer Spotify playback to this browser device
+        try {
+          await fetch('/api/spotify/player', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'transfer', deviceId: device_id }),
+          });
+          console.log('[Spotify Web SDK] Playback transferred to Beatz Web Player');
+        } catch (err) {
+          console.warn('[Spotify Web SDK] Transfer request error:', err);
         }
+      });
 
-        const track = state.track_window?.current_track;
-        if (track) {
-          setCurrentTrack({
-            id: track.id ?? 'spotify-current',
-            uri: track.uri ?? 'spotify:track:current',
-            name: track.name ?? 'Current track',
-            durationMs: track.duration_ms ?? 0,
-            artists: (track.artists ?? []).map((artist: any) => ({
-              id: artist.id ?? `${artist.name}-id`,
-              name: artist.name ?? 'Artist',
-              uri: artist.uri ?? `spotify:artist:${artist.name}`,
+      // Event: Device offline
+      player.addListener('not_ready', ({ device_id }: { device_id: string }) => {
+        console.warn('[Spotify Web SDK] Device offline:', device_id);
+        setSdkActive(false);
+        setSdkReady(false);
+      });
+
+      // Event: Playback state changed (track changed, paused, resumed, seeked)
+      player.addListener('player_state_changed', (state: any) => {
+        if (!state) return;
+
+        const rawTrack = state.track_window?.current_track;
+        if (rawTrack) {
+          const mappedTrack: SpotifyTrack = {
+            id: rawTrack.id || 'spotify-sdk-track',
+            uri: rawTrack.uri || `spotify:track:${rawTrack.id}`,
+            name: rawTrack.name || 'Playing Track',
+            durationMs: state.duration || rawTrack.duration_ms || 180000,
+            artists: (rawTrack.artists || []).map((a: any) => ({
+              id: a.uri || a.name,
+              name: a.name,
+              uri: a.uri || '',
             })),
             album: {
-              id: track.album?.id ?? 'spotify-album',
-              name: track.album?.name ?? 'Album',
-              uri: track.album?.uri ?? 'spotify:album:current',
-              images: (track.album?.images ?? []).map((image: any) => ({
-                url: image.url,
-                height: image.height ?? 640,
-                width: image.width ?? 640,
+              id: rawTrack.album?.uri || 'album-id',
+              name: rawTrack.album?.name || '',
+              uri: rawTrack.album?.uri || '',
+              images: (rawTrack.album?.images || []).map((img: any) => ({
+                url: img.url,
+                height: img.height ?? 300,
+                width: img.width ?? 300,
               })),
             },
-          });
-          setDurationMs(track.duration_ms ?? 0);
-          setProgressMs(state.position ?? 0);
-        }
+            previewUrl: null,
+          };
 
-        setIsPlaying(!state.paused);
+          syncSdkState({
+            currentTrack: mappedTrack,
+            durationMs: state.duration || mappedTrack.durationMs,
+            progressMs: state.position || 0,
+            isPlaying: !state.paused,
+          });
+        } else {
+          syncSdkState({ isPlaying: !state.paused });
+        }
+      });
+
+      // Event: Account Error (fires if user is not Spotify Premium)
+      player.addListener('account_error', (error: any) => {
+        console.warn('[Spotify Web SDK] Account Error (Premium Required):', error.message);
+        setIsPremium(false);
+        setSdkActive(false);
+        setSdkError('Spotify Premium required for in-browser streaming. Audio preview mode is active.');
+      });
+
+      // Event: Authentication Error
+      player.addListener('authentication_error', (error: any) => {
+        console.warn('[Spotify Web SDK] Auth Error:', error.message);
+        setSdkActive(false);
+        setSdkError('Authentication failed. Please reconnect Spotify.');
+      });
+
+      // Event: Playback Error
+      player.addListener('playback_error', (error: any) => {
+        console.warn('[Spotify Web SDK] Playback Error:', error.message);
       });
 
       player.connect();
     };
 
-    window.onSpotifyWebPlaybackSDKReady = bootstrapPlayer;
-    window.onSpotifyWebPlaybackSDKReady();
+    if (window.Spotify) {
+      initializePlayer();
+    } else {
+      window.onSpotifyWebPlaybackSDKReady = initializePlayer;
+    }
 
     return () => {
       if (playerRef.current) {
         playerRef.current.disconnect();
         playerRef.current = null;
       }
-      window.onSpotifyWebPlaybackSDKReady = undefined;
     };
-  }, [accessToken, enabled, volume]);
+  }, [accessToken, enabled, getFreshToken, volume, setSdkDeviceId, setSdkActive, setIsPremium, setSdkError, syncSdkState]);
 
   return {
-    deviceId,
-    isReady,
-    isPlaying,
-    progressMs,
-    durationMs,
-    volume,
-    currentTrack,
-    isLoading,
-    togglePlay,
-    nextTrack,
-    previousTrack,
-    setVolume,
-    seekTo,
+    isInitializing,
+    sdkReady,
+    player: playerRef.current,
   };
 }

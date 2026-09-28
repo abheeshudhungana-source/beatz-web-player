@@ -31,6 +31,23 @@ interface BeatzStore {
   isQueueOpen: boolean;
   isChatOpen: boolean;
 
+  // Spotify Web Playback SDK device bridge
+  sdkDeviceId: string | null;
+  isSdkActive: boolean;
+  isPremium: boolean;
+  sdkError: string | null;
+
+  setSdkDeviceId: (deviceId: string | null) => void;
+  setSdkActive: (active: boolean) => void;
+  setIsPremium: (isPremium: boolean) => void;
+  setSdkError: (error: string | null) => void;
+  syncSdkState: (stateUpdate: {
+    currentTrack?: SpotifyTrack;
+    durationMs?: number;
+    progressMs?: number;
+    isPlaying?: boolean;
+  }) => void;
+
   setCurrentTrack: (track: SpotifyTrack | null) => void;
   setQueue: (tracks: SpotifyTrack[] | QueueState) => void;
   addToQueue: (track: SpotifyTrack) => void;
@@ -63,6 +80,17 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
   adState: initialAdState,
   isQueueOpen: false,
   isChatOpen: false,
+
+  sdkDeviceId: null,
+  isSdkActive: false,
+  isPremium: false,
+  sdkError: null,
+
+  setSdkDeviceId: (deviceId) => set({ sdkDeviceId: deviceId }),
+  setSdkActive: (active) => set({ isSdkActive: active }),
+  setIsPremium: (isPremium) => set({ isPremium }),
+  setSdkError: (error) => set({ sdkError: error }),
+  syncSdkState: (stateUpdate) => set((prev) => ({ ...prev, ...stateUpdate })),
 
   setCurrentTrack: (track) =>
     set({
@@ -110,6 +138,36 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
     })),
 
   playTrack: (track) => {
+    const { isSdkActive, sdkDeviceId } = get();
+
+    // 1. If Spotify Web Playback SDK is connected and active:
+    if (isSdkActive && sdkDeviceId) {
+      if (typeof window !== 'undefined' && previewAudio) {
+        previewAudio.pause();
+        previewAudio.src = '';
+      }
+
+      set({
+        currentTrack: track,
+        durationMs: track.durationMs,
+        progressMs: 0,
+        isPlaying: true,
+      });
+
+      // Target playback specifically to the in-browser Web Playback SDK device
+      fetch('/api/spotify/player', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'play',
+          uri: track.uri,
+          deviceId: sdkDeviceId,
+        }),
+      }).catch((err) => console.warn('Failed to stream via Spotify SDK:', err));
+      return;
+    }
+
+    // 2. Fallback: In-browser audio preview engine
     if (typeof window !== 'undefined') {
       try {
         if (previewAudio) {
@@ -131,7 +189,7 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
         console.warn('Audio play error:', err);
       }
 
-      // Sync with Spotify player endpoint
+      // Also notify any external active Spotify session
       fetch('/api/spotify/player', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -148,11 +206,27 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
   },
 
   togglePlay: () => {
-    const { isPlaying, currentTrack, volume, adState } = get();
+    const { isPlaying, currentTrack, volume, adState, isSdkActive, sdkDeviceId } = get();
     if (adState.isAdPlaying) return;
 
     const nextIsPlaying = !isPlaying;
 
+    // 1. If Spotify Web Playback SDK is active:
+    if (isSdkActive && sdkDeviceId) {
+      set({ isPlaying: nextIsPlaying });
+      fetch('/api/spotify/player', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: nextIsPlaying ? 'play' : 'pause',
+          uri: currentTrack?.uri,
+          deviceId: sdkDeviceId,
+        }),
+      }).catch(() => {});
+      return;
+    }
+
+    // 2. Fallback preview audio toggle
     if (typeof window !== 'undefined' && currentTrack) {
       if (!previewAudio || previewAudio.src === '') {
         const audioUrl = getPreviewAudioUrl(currentTrack);
@@ -191,7 +265,7 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
     const queue = state.queue.upcomingTracks;
 
     if (queue.length === 0) {
-      // If queue is empty, cycle to the next song in catalog so the player never gets stuck
+      // If queue is empty, cycle to the next song in catalog so playback continues seamlessly
       const allTracks = MOCK_TRACKS;
       const currentIndex = allTracks.findIndex((t) => t.id === state.currentTrack?.id);
       const nextIndex = (currentIndex + 1) % allTracks.length;
@@ -208,14 +282,6 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
       });
       get().playTrack(next);
     }
-
-    if (typeof window !== 'undefined') {
-      fetch('/api/spotify/player', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'next' }),
-      }).catch(() => {});
-    }
   },
 
   previousTrack: () => {
@@ -229,30 +295,50 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
     const currentIndex = allTracks.findIndex((t) => t.id === state.currentTrack?.id);
     const prevIndex = (currentIndex - 1 + allTracks.length) % allTracks.length;
     get().playTrack(allTracks[prevIndex]);
-
-    if (typeof window !== 'undefined') {
-      fetch('/api/spotify/player', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'previous' }),
-      }).catch(() => {});
-    }
   },
 
   setVolume: (value) => {
     const clamped = clamp(value, 0, 1);
+    const { isSdkActive, sdkDeviceId } = get();
+
     if (previewAudio) {
       previewAudio.volume = clamped;
     }
+
+    if (isSdkActive && sdkDeviceId) {
+      fetch('/api/spotify/player', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'volume',
+          volumePercent: clamped * 100,
+          deviceId: sdkDeviceId,
+        }),
+      }).catch(() => {});
+    }
+
     set({ volume: clamped });
   },
 
   seekTo: (value) => {
     const clamped = clamp(value, 0, get().durationMs || 0);
-    if (previewAudio && previewAudio.duration && !isNaN(previewAudio.duration)) {
+    const { isSdkActive, sdkDeviceId } = get();
+
+    if (isSdkActive && sdkDeviceId) {
+      fetch('/api/spotify/player', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'seek',
+          positionMs: clamped,
+          deviceId: sdkDeviceId,
+        }),
+      }).catch(() => {});
+    } else if (previewAudio && previewAudio.duration && !isNaN(previewAudio.duration)) {
       const audioPercent = clamped / (get().durationMs || 1);
       previewAudio.currentTime = audioPercent * previewAudio.duration;
     }
+
     set({ progressMs: clamped });
   },
 
@@ -284,10 +370,11 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
         return {};
       }
 
+      // If SDK is active, Spotify SDK automatically fires player_state_changed with exact positionMs
+      // but tick forward 1s locally for ultra-smooth UI progress
       const nextProgress = state.progressMs + 1000;
 
-      if (nextProgress >= state.durationMs) {
-        // Delegate to nextTrack so audio and state seamlessly roll over
+      if (nextProgress >= state.durationMs && state.durationMs > 0) {
         get().nextTrack();
         return {};
       }
@@ -300,6 +387,14 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
   triggerAdBreak: () => {
     if (typeof window !== 'undefined' && previewAudio) {
       previewAudio.pause();
+    }
+    const { isSdkActive, sdkDeviceId } = get();
+    if (isSdkActive && sdkDeviceId) {
+      fetch('/api/spotify/player', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'pause', deviceId: sdkDeviceId }),
+      }).catch(() => {});
     }
     set((state) => ({
       isPlaying: false,
