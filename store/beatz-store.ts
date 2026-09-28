@@ -69,6 +69,9 @@ interface BeatzStore {
 
 let previewAudio: HTMLAudioElement | null = null;
 
+const getUpcomingQueueAfterCurrent = (currentTrack: SpotifyTrack | null, upcomingTracks: SpotifyTrack[] = []) =>
+  upcomingTracks.filter((track) => track.id !== currentTrack?.id);
+
 export const useBeatzStore = create<BeatzStore>((set, get) => ({
   currentTrack: initialQueue.currentlyPlaying,
   queue: initialQueue,
@@ -106,7 +109,7 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
         currentTrack: nextTrack,
         queue: {
           currentlyPlaying: nextTrack,
-          upcomingTracks: input.slice(1),
+          upcomingTracks: getUpcomingQueueAfterCurrent(nextTrack, input.slice(1)),
           isLoading: false,
           error: null,
         },
@@ -115,7 +118,10 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
       });
     } else {
       set({
-        queue: input,
+        queue: {
+          ...input,
+          upcomingTracks: getUpcomingQueueAfterCurrent(input.currentlyPlaying ?? get().currentTrack, input.upcomingTracks),
+        },
         currentTrack: input.currentlyPlaying ?? get().currentTrack,
       });
     }
@@ -125,7 +131,7 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
     set((state) => ({
       queue: {
         ...state.queue,
-        upcomingTracks: [...state.queue.upcomingTracks, track],
+        upcomingTracks: getUpcomingQueueAfterCurrent(state.currentTrack, [...state.queue.upcomingTracks, track]),
       },
     })),
 
@@ -138,7 +144,9 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
     })),
 
   playTrack: (track) => {
-    const { isSdkActive, sdkDeviceId } = get();
+    const { isSdkActive, sdkDeviceId, queue } = get();
+    const upcomingWithoutSelected = getUpcomingQueueAfterCurrent(track, queue.upcomingTracks)
+      .filter((item) => item.id !== queue.currentlyPlaying?.id);
 
     // 1. If Spotify Web Playback SDK is connected and active:
     if (isSdkActive && sdkDeviceId) {
@@ -149,6 +157,11 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
 
       set({
         currentTrack: track,
+        queue: {
+          ...queue,
+          currentlyPlaying: track,
+          upcomingTracks: upcomingWithoutSelected,
+        },
         durationMs: track.durationMs,
         progressMs: 0,
         isPlaying: true,
@@ -199,6 +212,11 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
 
     set({
       currentTrack: track,
+      queue: {
+        ...queue,
+        currentlyPlaying: track,
+        upcomingTracks: upcomingWithoutSelected,
+      },
       durationMs: track.durationMs,
       progressMs: 0,
       isPlaying: true,

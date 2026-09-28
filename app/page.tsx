@@ -176,22 +176,6 @@ export default function Home() {
         </div>
 
         <div className="flex items-center gap-4">
-          <button
-            onClick={() => setQueueOpen(true)}
-            className="flex items-center gap-2 rounded-full border border-spotify-highlight bg-spotify-elevated px-3 py-1.5 text-xs text-zinc-200 transition hover:border-spotify-green/60"
-          >
-            <ListMusic className="h-3.5 w-3.5 text-spotify-green" />
-            <span>Queue ({queue.upcomingTracks.length})</span>
-          </button>
-
-          <button
-            onClick={() => setChatOpen(true)}
-            className="flex items-center gap-1.5 rounded-full border border-spotify-green/30 bg-spotify-green/10 px-3 py-1.5 text-xs text-spotify-green font-medium transition hover:bg-spotify-green hover:text-black"
-          >
-            <Sparkles className="h-3.5 w-3.5" />
-            <span>Beatz AI</span>
-          </button>
-
           <div className="flex items-center gap-3 rounded-full border border-spotify-highlight bg-spotify-elevated py-1.5 px-3">
             {activeUser.images?.[0]?.url ? (
               <img
@@ -414,103 +398,93 @@ export default function Home() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-spotify-subtext font-semibold">
                 <Sparkles className="h-3.5 w-3.5 text-spotify-green" />
-                Featured Audio Player
+                Queue Overview
               </div>
               <button
                 onClick={() => setQueueOpen(true)}
                 className="flex items-center gap-2 rounded-full border border-spotify-highlight bg-spotify-elevated px-3 py-1.5 text-xs text-zinc-200 transition hover:border-spotify-green/60"
               >
                 <ListMusic className="h-3.5 w-3.5 text-spotify-green" />
-                Queue
+                Open Queue
               </button>
             </div>
 
-            <div className="mt-6 grid items-center gap-6 md:grid-cols-[200px_1fr]">
-              <div className="h-[200px] rounded-2xl bg-gradient-to-br from-violet-500 via-fuchsia-500 to-spotify-green p-3 shadow-2xl shadow-violet-900/40">
-                {currentTrack?.album?.images?.[0]?.url ? (
-                  <img
-                    src={currentTrack.album.images[0].url}
-                    alt={currentTrack.name}
-                    className="h-full w-full object-cover rounded-xl"
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center rounded-xl border border-white/20 bg-black/10 backdrop-blur-sm">
-                    <Music className="h-16 w-16 text-white/90" />
+            <div className="mt-6 space-y-4">
+              <div className="rounded-2xl border border-spotify-border bg-spotify-elevated/50 p-4">
+                <p className="text-[11px] uppercase tracking-[0.25em] text-spotify-green font-semibold">Now Playing</p>
+                <div className="mt-3 flex items-center gap-4">
+                  <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-xl bg-spotify-elevated border border-white/10 shadow-sm shadow-black/20">
+                    {currentTrack?.album?.images?.[0]?.url ? (
+                      <img src={currentTrack.album.images[0].url} alt={currentTrack.name} className="h-full w-full object-cover" />
+                    ) : (
+                      <Music className="h-7 w-7 text-spotify-green" />
+                    )}
                   </div>
-                )}
+                  <div className="min-w-0">
+                    <h2 className="truncate text-xl font-black tracking-tight text-white">{nowPlaying.title}</h2>
+                    <p className="mt-0.5 truncate text-sm text-spotify-subtext">{nowPlaying.artist}</p>
+                  </div>
+                </div>
               </div>
 
-              <div className="space-y-4">
-                <div>
-                  <p className="text-[11px] uppercase tracking-[0.25em] text-spotify-green font-semibold">
-                    Now Playing
-                  </p>
-                  <h2 className="mt-1 text-2xl font-black tracking-tight text-white">{nowPlaying.title}</h2>
-                  <p className="mt-0.5 text-sm text-spotify-subtext">{nowPlaying.artist}</p>
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-[11px] font-mono text-spotify-subtext">
+                  <span>{currentProgressLabel}</span>
+                  <span>{durationLabel}</span>
                 </div>
-
-                {/* Progress Scrubber */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between text-[11px] font-mono text-spotify-subtext">
-                    <span>{currentProgressLabel}</span>
-                    <span>{durationLabel}</span>
-                  </div>
-                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-spotify-elevated">
-                    <div
-                      className="h-full rounded-full bg-spotify-green transition-all"
-                      style={{ width: `${progressPercent}%` }}
-                    />
-                  </div>
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-spotify-elevated">
+                  <div
+                    className="h-full rounded-full bg-spotify-green transition-all"
+                    style={{ width: `${progressPercent}%` }}
+                  />
                 </div>
+              </div>
 
-                {/* Transport Buttons */}
-                <div className="flex items-center gap-4">
-                  <button
-                    onClick={previousTrack}
-                    className="rounded-full bg-spotify-elevated p-3 text-zinc-200 transition hover:text-white"
-                    title="Previous Track"
-                  >
-                    <SkipBack className="h-4 w-4" />
-                  </button>
+              <div className="flex items-center justify-center gap-4 pt-2">
+                <button
+                  onClick={previousTrack}
+                  className="rounded-full bg-spotify-elevated p-3 text-zinc-200 transition hover:text-white"
+                  title="Previous Track"
+                >
+                  <SkipBack className="h-4 w-4" />
+                </button>
 
-                  <button
-                    onClick={() => {
-                      if (adState.isAdPlaying) {
-                        finishAdBreak();
-                        return;
-                      }
-                      togglePlay();
-                    }}
-                    className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-black shadow-lg shadow-white/20 transition hover:scale-105 active:scale-95"
-                    aria-label={isPlaying ? 'Pause' : 'Play'}
-                  >
-                    {isPlaying ? (
-                      <Pause className="h-5 w-5 fill-current" />
-                    ) : (
-                      <Play className="h-5 w-5 fill-current ml-0.5" />
-                    )}
-                  </button>
+                <button
+                  onClick={() => {
+                    if (adState.isAdPlaying) {
+                      finishAdBreak();
+                      return;
+                    }
+                    togglePlay();
+                  }}
+                  className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-black shadow-lg shadow-white/20 transition hover:scale-105 active:scale-95"
+                  aria-label={isPlaying ? 'Pause' : 'Play'}
+                >
+                  {isPlaying ? (
+                    <Pause className="h-5 w-5 fill-current" />
+                  ) : (
+                    <Play className="h-5 w-5 fill-current ml-0.5" />
+                  )}
+                </button>
 
-                  <button
-                    onClick={nextTrack}
-                    className="rounded-full bg-spotify-elevated p-3 text-zinc-200 transition hover:text-white"
-                    title="Next Track"
-                  >
-                    <SkipForward className="h-4 w-4" />
-                  </button>
+                <button
+                  onClick={nextTrack}
+                  className="rounded-full bg-spotify-elevated p-3 text-zinc-200 transition hover:text-white"
+                  title="Next Track"
+                >
+                  <SkipForward className="h-4 w-4" />
+                </button>
 
-                  <button
-                    className="ml-auto rounded-full bg-spotify-elevated p-3 text-zinc-400 hover:text-spotify-green transition"
-                    title="Like Song"
-                  >
-                    <Heart className="h-4 w-4" />
-                  </button>
-                </div>
+                <button
+                  className="ml-2 rounded-full bg-spotify-elevated p-3 text-zinc-400 hover:text-spotify-green transition"
+                  title="Like Song"
+                >
+                  <Heart className="h-4 w-4" />
+                </button>
               </div>
             </div>
           </section>
 
-          {/* Up Next Preview Aside */}
           <aside className="rounded-3xl border border-spotify-border bg-spotify-surface p-5 shadow-xl shadow-black/20 flex flex-col">
             <div className="flex items-center justify-between">
               <h3 className="text-base font-bold text-white">Up Next in Queue</h3>
