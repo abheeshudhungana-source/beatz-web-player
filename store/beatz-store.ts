@@ -50,6 +50,16 @@ interface BeatzStore {
   setChatOpen: (open: boolean) => void;
 }
 
+const FALLBACK_PREVIEW_URL = 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3';
+
+const getTrackPreviewUrl = (track: SpotifyTrack | null): string | null => {
+  if (!track) {
+    return null;
+  }
+
+  return track.previewUrl || FALLBACK_PREVIEW_URL;
+};
+
 let previewAudio: HTMLAudioElement | null = null;
 
 export const useBeatzStore = create<BeatzStore>((set, get) => ({
@@ -110,12 +120,14 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
     })),
 
   playTrack: (track) => {
+    const previewUrl = getTrackPreviewUrl(track);
+
     if (typeof window !== 'undefined') {
       if (previewAudio) {
         previewAudio.pause();
       }
-      if (track.previewUrl) {
-        previewAudio = new Audio(track.previewUrl);
+      if (previewUrl) {
+        previewAudio = new Audio(previewUrl);
         previewAudio.volume = get().volume;
         previewAudio.play().catch((e) => console.warn('Audio play blocked:', e));
       }
@@ -134,10 +146,11 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
     if (adState.isAdPlaying) return;
 
     const nextIsPlaying = !isPlaying;
+    const previewUrl = getTrackPreviewUrl(currentTrack);
 
-    if (typeof window !== 'undefined' && currentTrack?.previewUrl) {
+    if (typeof window !== 'undefined' && previewUrl) {
       if (!previewAudio) {
-        previewAudio = new Audio(currentTrack.previewUrl);
+        previewAudio = new Audio(previewUrl);
         previewAudio.volume = volume;
       }
       if (nextIsPlaying) {
@@ -164,11 +177,13 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
     }
 
     const [next, ...rest] = queue;
+    const nextPreviewUrl = getTrackPreviewUrl(next);
+
     if (typeof window !== 'undefined' && previewAudio) {
       previewAudio.pause();
     }
-    if (typeof window !== 'undefined' && next.previewUrl) {
-      previewAudio = new Audio(next.previewUrl);
+    if (typeof window !== 'undefined' && nextPreviewUrl) {
+      previewAudio = new Audio(nextPreviewUrl);
       previewAudio.volume = state.volume;
       previewAudio.play().catch(() => {});
     }
