@@ -136,6 +136,65 @@ export default function Home() {
     return MOCK_TRACKS;
   }, [searchResults, searchQuery]);
 
+  const lyricsForCurrentTrack = useMemo(() => {
+    if (!currentTrack) {
+      return ['Select a track to view its lyrics.'];
+    }
+
+    const normalizedName = currentTrack.name.toLowerCase();
+    const lyricsByTrack: Record<string, string[]> = {
+      'blinding lights': [
+        'Yeah,\n',
+        'I live my life in the night\n',
+        'I know I should be sleeping now\n',
+        'But I keep reaching for the light\n',
+        'When the night gets cold\n',
+        'I feel it in my bones\n',
+        'And I know the city glows\n',
+        'When I hear your voice in the midnight glow',
+      ],
+      'never gonna give you up': [
+        'Never gonna give you up\n',
+        'Never gonna let you down\n',
+        'Never gonna run around\n',
+        'And desert you\n',
+        'Never gonna make you cry\n',
+        'Never gonna say goodbye\n',
+        'Never gonna tell a lie\n',
+        'And hurt you',
+      ],
+      'midnight city': [
+        'Waiting in the dark\n',
+        'I can’t see your face\n',
+        'The city lights are glowing\n',
+        'Like a dream in motion\n',
+        'Running through the night\n',
+        'With the echoes of the past\n',
+        'Midnight city, hear the heartbeat\n',
+        'Calling us to run away',
+      ],
+      stay: [
+        'I do the same thing, I told you that\n',
+        'I need to know that you are ok\n',
+        'I’m not leaving you, I’m staying\n',
+        'Cause the night is cold\n',
+        'And I don’t want to be alone\n',
+        'I want to stay with you tonight',
+      ],
+      'shape of you': [
+        'The club isn’t the best place to find a lover\n',
+        'So the bar and the music are the perfect place\n',
+        'To find a man\n',
+        'Who can really love you\n',
+        'And, oh, what a feeling\n',
+        'I can’t stop staring at you',
+      ],
+    };
+
+    const matchedLyrics = Object.entries(lyricsByTrack).find(([trackName]) => normalizedName.includes(trackName));
+    return matchedLyrics ? matchedLyrics[1] : ['Lyrics preview for this track is not available yet.'];
+  }, [currentTrack]);
+
   const progressPercent = durationMs > 0 ? Math.min((progressMs / durationMs) * 100, 100) : 0;
   const currentProgressLabel = formatDuration(progressMs);
   const durationLabel = formatDuration(durationMs || 232000);
@@ -477,12 +536,11 @@ export default function Home() {
               </div>
 
               <div className="space-y-2 text-sm leading-7 text-zinc-300">
-                <p>Here comes the sun, and I say</p>
-                <p>It’s alright</p>
-                <p>And I want to hold your hand</p>
-                <p>To feel the rhythm in the night</p>
-                <p className="text-zinc-500">—</p>
-                <p className="text-zinc-500 italic">Lyrics preview for demo playback.</p>
+                {lyricsForCurrentTrack.map((line, index) => (
+                  <p key={`${currentTrack?.id ?? 'track'}-${index}`} className={line.includes('—') || line.includes('Lyrics preview') ? 'text-zinc-500 italic' : ''}>
+                    {line}
+                  </p>
+                ))}
               </div>
             </div>
 
