@@ -72,7 +72,7 @@ const TOOLS_CONFIG = [
 async function fallbackHeuristicCurator(
   sanitizedInput: string,
   currentTrackName?: string,
-  accessToken?: string | null
+  accessToken: string | null = null
 ): Promise<{ text: string; tracks: SpotifyTrack[]; action?: 'queue' | 'play' }> {
   const lower = sanitizedInput.toLowerCase();
 
@@ -105,7 +105,7 @@ async function fallbackHeuristicCurator(
   }
 
   try {
-    const tracks = await searchTracks(searchQuery, accessToken, 3);
+    const tracks = await searchTracks(searchQuery, accessToken ?? null, 3);
     return {
       text: rationale,
       tracks: tracks.length > 0 ? tracks : MOCK_TRACKS.slice(0, 3),
@@ -210,7 +210,7 @@ ${sanitizedInput}
         const searchQuery = (args?.query || sanitizedInput).slice(0, 80);
         const rationale = args?.rationale || `Curated ${clampedCount} tracks matching "${searchQuery}".`;
 
-        const foundTracks = await searchTracks(searchQuery, accessToken, clampedCount);
+        const foundTracks = await searchTracks(searchQuery, accessToken ?? null, clampedCount);
 
         return NextResponse.json({
           text: rationale,
@@ -224,7 +224,7 @@ ${sanitizedInput}
         const searchQuery = (args?.query || sanitizedInput).slice(0, 80);
         const rationale = args?.rationale || `Playing "${searchQuery}" right now!`;
 
-        const foundTracks = await searchTracks(searchQuery, accessToken, 1);
+        const foundTracks = await searchTracks(searchQuery, accessToken ?? null, 1);
 
         return NextResponse.json({
           text: rationale,
