@@ -457,44 +457,40 @@ export default function Home() {
 
           <aside className="rounded-3xl border border-spotify-border bg-spotify-surface p-5 shadow-xl shadow-black/20 flex flex-col">
             <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold text-white">Up Next in Queue</h3>
-              <span className="text-[11px] text-spotify-subtext font-mono">
-                {queue.upcomingTracks.length} upcoming
-              </span>
+              <h3 className="text-base font-bold text-white">Lyrics</h3>
+              <span className="text-[11px] text-spotify-subtext font-mono">Now playing</span>
             </div>
 
-            <div className="mt-4 space-y-2.5 flex-1 overflow-y-auto max-h-[220px]">
-              {queue.upcomingTracks.slice(0, 4).map((track, index) => (
-                <button
-                  key={`${track.id}-${index}`}
-                  onClick={() => playTrack(track)}
-                  className="flex w-full items-center justify-between rounded-xl border border-spotify-border bg-spotify-elevated/40 p-2.5 text-left transition hover:border-spotify-green/40 hover:bg-spotify-elevated group"
-                >
-                  <div className="flex min-w-0 items-center gap-3">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-800 text-xs font-bold text-zinc-400">
-                      {index + 1}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="truncate text-xs font-medium text-white group-hover:text-spotify-green transition">
-                        {track.name}
-                      </p>
-                      <p className="truncate text-[11px] text-spotify-subtext">
-                        {track.artists?.[0]?.name}
-                      </p>
-                    </div>
-                  </div>
-                  <span className="font-mono text-[11px] text-zinc-400">
-                    {formatDuration(track.durationMs)}
-                  </span>
-                </button>
-              ))}
+            <div className="mt-4 flex-1 rounded-2xl border border-spotify-border bg-spotify-elevated/35 p-4">
+              <div className="mb-4 flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-spotify-elevated border border-white/10">
+                  {currentTrack?.album?.images?.[0]?.url ? (
+                    <img src={currentTrack.album.images[0].url} alt={currentTrack.name} className="h-full w-full object-cover" />
+                  ) : (
+                    <Music className="h-5 w-5 text-spotify-green" />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-white">{currentTrack?.name ?? 'No track selected'}</p>
+                  <p className="truncate text-[11px] text-spotify-subtext">{currentTrack?.artists?.[0]?.name ?? 'Artist unavailable'}</p>
+                </div>
+              </div>
+
+              <div className="space-y-2 text-sm leading-7 text-zinc-300">
+                <p>Here comes the sun, and I say</p>
+                <p>It’s alright</p>
+                <p>And I want to hold your hand</p>
+                <p>To feel the rhythm in the night</p>
+                <p className="text-zinc-500">—</p>
+                <p className="text-zinc-500 italic">Lyrics preview for demo playback.</p>
+              </div>
             </div>
 
             <button
               onClick={() => setQueueOpen(true)}
               className="mt-4 w-full rounded-xl bg-spotify-elevated hover:bg-spotify-green/10 hover:text-spotify-green border border-spotify-border py-2 text-xs font-semibold text-zinc-300 transition"
             >
-              Open Full Queue Drawer
+              Open Queue Drawer
             </button>
           </aside>
         </div>
