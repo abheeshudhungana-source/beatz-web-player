@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { AdBreakState, QueueState, SpotifyTrack } from '@/types/spotify';
-import { MOCK_TRACKS } from '@/lib/spotify';
+import { MOCK_TRACKS, getPreviewAudioUrl } from '@/lib/spotify';
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 
@@ -49,16 +49,6 @@ interface BeatzStore {
   toggleChat: () => void;
   setChatOpen: (open: boolean) => void;
 }
-
-const FALLBACK_PREVIEW_URL = 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3';
-
-const getTrackPreviewUrl = (track: SpotifyTrack | null): string | null => {
-  if (!track) {
-    return null;
-  }
-
-  return track.previewUrl || FALLBACK_PREVIEW_URL;
-};
 
 let previewAudio: HTMLAudioElement | null = null;
 
@@ -120,17 +110,33 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
     })),
 
   playTrack: (track) => {
-    const previewUrl = getTrackPreviewUrl(track);
-
     if (typeof window !== 'undefined') {
-      if (previewAudio) {
-        previewAudio.pause();
-      }
-      if (previewUrl) {
-        previewAudio = new Audio(previewUrl);
+      try {
+        if (previewAudio) {
+          previewAudio.pause();
+          previewAudio.src = '';
+        }
+        const audioUrl = getPreviewAudioUrl(track);
+        previewAudio = new Audio(audioUrl);
         previewAudio.volume = get().volume;
-        previewAudio.play().catch((e) => console.warn('Audio play blocked:', e));
+        previewAudio.onended = () => {
+          get().nextTrack();
+        };
+
+        const playPromise = previewAudio.play();
+        if (playPromise !== undefined) {
+          playPromise.catch((e) => console.warn('Audio play blocked / user gesture needed:', e));
+        }
+      } catch (err) {
+        console.warn('Audio play error:', err);
       }
+
+      // Sync with Spotify player endpoint
+      fetch('/api/spotify/player', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'play', uri: track.uri }),
+      }).catch(() => {});
     }
 
     set({
@@ -146,17 +152,34 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
     if (adState.isAdPlaying) return;
 
     const nextIsPlaying = !isPlaying;
-    const previewUrl = getTrackPreviewUrl(currentTrack);
 
-    if (typeof window !== 'undefined' && previewUrl) {
-      if (!previewAudio) {
-        previewAudio = new Audio(previewUrl);
+    if (typeof window !== 'undefined' && currentTrack) {
+      if (!previewAudio || previewAudio.src === '') {
+        const audioUrl = getPreviewAudioUrl(currentTrack);
+        previewAudio = new Audio(audioUrl);
         previewAudio.volume = volume;
+        previewAudio.onended = () => {
+          get().nextTrack();
+        };
       }
+
       if (nextIsPlaying) {
-        previewAudio.play().catch((e) => console.warn('Audio play error:', e));
+        const playPromise = previewAudio.play();
+        if (playPromise !== undefined) {
+          playPromise.catch((e) => console.warn('Audio play error:', e));
+        }
+        fetch('/api/spotify/player', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'play', uri: currentTrack.uri }),
+        }).catch(() => {});
       } else {
         previewAudio.pause();
+        fetch('/api/spotify/player', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'pause' }),
+        }).catch(() => {});
       }
     }
 
@@ -173,33 +196,26 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
       const currentIndex = allTracks.findIndex((t) => t.id === state.currentTrack?.id);
       const nextIndex = (currentIndex + 1) % allTracks.length;
       get().playTrack(allTracks[nextIndex]);
-      return;
+    } else {
+      const [next, ...rest] = queue;
+      set({
+        queue: {
+          currentlyPlaying: next,
+          upcomingTracks: rest.length > 0 ? rest : MOCK_TRACKS.filter((t) => t.id !== next.id),
+          isLoading: false,
+          error: null,
+        },
+      });
+      get().playTrack(next);
     }
 
-    const [next, ...rest] = queue;
-    const nextPreviewUrl = getTrackPreviewUrl(next);
-
-    if (typeof window !== 'undefined' && previewAudio) {
-      previewAudio.pause();
+    if (typeof window !== 'undefined') {
+      fetch('/api/spotify/player', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'next' }),
+      }).catch(() => {});
     }
-    if (typeof window !== 'undefined' && nextPreviewUrl) {
-      previewAudio = new Audio(nextPreviewUrl);
-      previewAudio.volume = state.volume;
-      previewAudio.play().catch(() => {});
-    }
-
-    set({
-      currentTrack: next,
-      queue: {
-        currentlyPlaying: next,
-        upcomingTracks: rest,
-        isLoading: false,
-        error: null,
-      },
-      durationMs: next.durationMs,
-      progressMs: 0,
-      isPlaying: true,
-    });
   },
 
   previousTrack: () => {
@@ -213,6 +229,14 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
     const currentIndex = allTracks.findIndex((t) => t.id === state.currentTrack?.id);
     const prevIndex = (currentIndex - 1 + allTracks.length) % allTracks.length;
     get().playTrack(allTracks[prevIndex]);
+
+    if (typeof window !== 'undefined') {
+      fetch('/api/spotify/player', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'previous' }),
+      }).catch(() => {});
+    }
   },
 
   setVolume: (value) => {
@@ -225,8 +249,9 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
 
   seekTo: (value) => {
     const clamped = clamp(value, 0, get().durationMs || 0);
-    if (previewAudio) {
-      previewAudio.currentTime = clamped / 1000;
+    if (previewAudio && previewAudio.duration && !isNaN(previewAudio.duration)) {
+      const audioPercent = clamped / (get().durationMs || 1);
+      previewAudio.currentTime = audioPercent * previewAudio.duration;
     }
     set({ progressMs: clamped });
   },
@@ -262,27 +287,9 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
       const nextProgress = state.progressMs + 1000;
 
       if (nextProgress >= state.durationMs) {
-        const { queue } = state;
-        const [nextTrack, ...rest] = queue.upcomingTracks;
-
-        if (nextTrack) {
-          return {
-            currentTrack: nextTrack,
-            queue: {
-              currentlyPlaying: nextTrack,
-              upcomingTracks: rest,
-              isLoading: false,
-              error: null,
-            },
-            progressMs: 0,
-            durationMs: nextTrack.durationMs,
-          };
-        }
-
-        return {
-          isPlaying: false,
-          progressMs: state.durationMs,
-        };
+        // Delegate to nextTrack so audio and state seamlessly roll over
+        get().nextTrack();
+        return {};
       }
 
       return {
@@ -299,22 +306,20 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
       adState: {
         ...state.adState,
         isAdPlaying: true,
-        adDurationMs: 45000 + Math.floor(Math.random() * 105000),
         adProgressMs: 0,
         adIndex: state.adState.adIndex + 1,
-        totalAdsInBreak: 3 + Math.floor(Math.random() * 3),
       },
     }));
   },
 
   finishAdBreak: () =>
     set((state) => ({
+      isPlaying: true,
       adState: {
         ...state.adState,
         isAdPlaying: false,
         adProgressMs: 0,
       },
-      isPlaying: true,
     })),
 
   toggleQueue: () => set((state) => ({ isQueueOpen: !state.isQueueOpen })),

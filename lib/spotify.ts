@@ -9,6 +9,33 @@ export const SPOTIFY_TRACK_URI_REGEX = /^spotify:track:[a-zA-Z0-9]{22}$/;
 // MOCK DATA FALLBACKS (Enables testing for Free accounts & offline prototyping)
 // ============================================================================
 
+export const FALLBACK_PREVIEW_URLS = [
+  'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
+  'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
+  'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3',
+  'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3',
+  'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3',
+  'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3',
+  'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3',
+  'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3',
+];
+
+export function getPreviewAudioUrl(track: SpotifyTrack | null | undefined): string {
+  if (track?.previewUrl && !track.previewUrl.includes('pixabay.com')) {
+    return track.previewUrl;
+  }
+  if (!track || !track.id) {
+    return FALLBACK_PREVIEW_URLS[0];
+  }
+  let hash = 0;
+  for (let i = 0; i < track.id.length; i++) {
+    hash = (hash << 5) - hash + track.id.charCodeAt(i);
+    hash |= 0;
+  }
+  const index = Math.abs(hash) % FALLBACK_PREVIEW_URLS.length;
+  return FALLBACK_PREVIEW_URLS[index];
+}
+
 export const MOCK_TRACKS: SpotifyTrack[] = [
   {
     id: '4cOdK2wGLETKBW3PvgPWqT',
@@ -24,7 +51,7 @@ export const MOCK_TRACKS: SpotifyTrack[] = [
         { url: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&h=300&fit=crop', height: 300, width: 300 },
       ],
     },
-    previewUrl: 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3',
+    previewUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
   },
   {
     id: '0VjIjW4GlUZAMYd2vXMi3b',
@@ -40,7 +67,7 @@ export const MOCK_TRACKS: SpotifyTrack[] = [
         { url: 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=300&h=300&fit=crop', height: 300, width: 300 },
       ],
     },
-    previewUrl: 'https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a73467.mp3?filename=electronic-future-beats-117997.mp3',
+    previewUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
   },
   {
     id: '3n3Ppam7vgaVa1iaRUc9Lp',
@@ -56,7 +83,7 @@ export const MOCK_TRACKS: SpotifyTrack[] = [
         { url: 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=300&h=300&fit=crop', height: 300, width: 300 },
       ],
     },
-    previewUrl: 'https://cdn.pixabay.com/download/audio/2022/10/14/audio_9939f77cb7.mp3?filename=synthwave-80s-110045.mp3',
+    previewUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3',
   },
   {
     id: '1rqqCSm0Q5VIviLAapigu0',
@@ -75,7 +102,7 @@ export const MOCK_TRACKS: SpotifyTrack[] = [
         { url: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=300&h=300&fit=crop', height: 300, width: 300 },
       ],
     },
-    previewUrl: 'https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3?filename=chill-abstract-intention-12099.mp3',
+    previewUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3',
   },
   {
     id: '7qiZfU4dY1lWllzX7mPBI3',
@@ -91,7 +118,7 @@ export const MOCK_TRACKS: SpotifyTrack[] = [
         { url: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=300&h=300&fit=crop', height: 300, width: 300 },
       ],
     },
-    previewUrl: 'https://cdn.pixabay.com/download/audio/2021/08/04/audio_bb630cc098.mp3?filename=groove-ambient-112192.mp3',
+    previewUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3',
   },
 ];
 
@@ -182,15 +209,21 @@ export async function spotifyFetch<T>(
 // ============================================================================
 
 export function mapSpotifyTrackDto(rawTrack: any): SpotifyTrack {
+  const trackId = rawTrack.id || rawTrack.uri || 'unknown-track';
+  const rawPreview = rawTrack.preview_url;
+  const finalPreview = (rawPreview && !rawPreview.includes('pixabay.com'))
+    ? rawPreview
+    : getPreviewAudioUrl({ id: trackId, previewUrl: null } as SpotifyTrack);
+
   return {
-    id: rawTrack.id,
-    uri: rawTrack.uri,
-    name: rawTrack.name,
-    durationMs: rawTrack.duration_ms || 0,
+    id: trackId,
+    uri: rawTrack.uri || `spotify:track:${trackId}`,
+    name: rawTrack.name || 'Unknown Track',
+    durationMs: typeof rawTrack.duration_ms === 'number' ? rawTrack.duration_ms : 180000,
     artists: (rawTrack.artists || []).map((artist: any) => ({
-      id: artist.id,
-      name: artist.name,
-      uri: artist.uri,
+      id: artist.id || 'unknown-artist',
+      name: artist.name || 'Unknown Artist',
+      uri: artist.uri || `spotify:artist:${artist.id || 'unknown'}`,
     })),
     album: {
       id: rawTrack.album?.id || '',
@@ -198,7 +231,7 @@ export function mapSpotifyTrackDto(rawTrack: any): SpotifyTrack {
       uri: rawTrack.album?.uri || '',
       images: rawTrack.album?.images || [],
     },
-    previewUrl: rawTrack.preview_url || null,
+    previewUrl: finalPreview,
   };
 }
 
