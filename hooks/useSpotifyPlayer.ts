@@ -28,6 +28,7 @@ declare global {
         previousTrack: () => Promise<void>;
         seek: (positionMs: number) => Promise<void>;
         setVolume: (volume: number) => Promise<void>;
+        getCurrentState: () => Promise<any | null>;
       };
     };
   }
@@ -70,6 +71,7 @@ export function useSpotifyPlayer({ accessToken, enabled }: UseSpotifyPlayerArgs)
     }
 
     setIsInitializing(true);
+    let progressPoll: ReturnType<typeof setInterval> | null = null;
 
     // 1. Inject Spotify Web Playback SDK script tag if not already on page
     const existingScript = document.querySelector('script[data-spotify-sdk="true"]');
@@ -104,6 +106,18 @@ export function useSpotifyPlayer({ accessToken, enabled }: UseSpotifyPlayerArgs)
         setIsInitializing(false);
         setSdkError(null);
         setIsPremium(true);
+
+        progressPoll = setInterval(() => {
+          void player.getCurrentState().then((state: any) => {
+            if (!state) return;
+
+            syncSdkState({
+              progressMs: state.position ?? 0,
+              durationMs: state.duration,
+              isPlaying: !state.paused,
+            });
+          }).catch(() => {});
+        }, 500);
 
         // Auto-transfer Spotify playback to this browser device
         try {
@@ -195,6 +209,9 @@ export function useSpotifyPlayer({ accessToken, enabled }: UseSpotifyPlayerArgs)
     }
 
     return () => {
+      if (progressPoll) {
+        clearInterval(progressPoll);
+      }
       if (playerRef.current) {
         playerRef.current.disconnect();
         playerRef.current = null;
