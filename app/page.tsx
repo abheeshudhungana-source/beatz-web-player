@@ -37,6 +37,11 @@ export default function Home() {
   const { isAuthenticated, isLoading, user, login, logout } = useSpotifyAuth();
   const { query: searchQuery, setQuery: setSearchQuery, results: searchResults, isSearching } = useSpotifySearch();
   const [addedTrackId, setAddedTrackId] = useState<string | null>(null);
+  const activeUser = user ?? {
+    displayName: 'Demo User',
+    product: 'premium',
+    images: [],
+  };
 
   const {
     currentTrack,
@@ -137,56 +142,8 @@ export default function Home() {
     );
   }
 
-  // Unauthenticated View: Spotify OAuth Connect Screen
-  if (!isAuthenticated) {
-    return (
-      <main className="flex min-h-screen flex-col items-center justify-center p-6 bg-gradient-to-b from-[#1e1e1e] to-spotify-dark">
-        <div className="max-w-md w-full text-center space-y-8 bg-spotify-surface border border-spotify-border p-10 rounded-2xl shadow-2xl">
-          <div className="flex justify-center">
-            <div className="h-20 w-20 rounded-2xl bg-spotify-green flex items-center justify-center shadow-lg shadow-spotify-green/20">
-              <Music className="h-10 w-10 text-black" />
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <h1 className="text-4xl font-extrabold tracking-tight text-white">BEATZ</h1>
-            <p className="text-sm text-spotify-subtext leading-relaxed">
-              The AI-Powered Spotify Web Player. Free on-demand song choice, real-time queue orchestration, and conversational music discovery.
-            </p>
-          </div>
-
-          <div className="space-y-3 text-left bg-spotify-elevated p-4 rounded-xl border border-spotify-highlight text-xs text-zinc-300">
-            <div className="flex items-center gap-2 text-spotify-green font-semibold">
-              <CheckCircle2 className="h-4 w-4" />
-              <span>Free On-Demand Track Selection</span>
-            </div>
-            <div className="flex items-center gap-2 text-spotify-green font-semibold">
-              <Sparkles className="h-4 w-4" />
-              <span>Predictable 3–5 Ad Breaks / Hour</span>
-            </div>
-            <div className="flex items-center gap-2 text-spotify-green font-semibold">
-              <ListMusic className="h-4 w-4" />
-              <span>Real-Time Interactive Queue Manager</span>
-            </div>
-          </div>
-
-          <button
-            onClick={login}
-            className="w-full flex items-center justify-center gap-3 bg-spotify-green hover:bg-spotify-green-hover text-black font-bold py-4 px-6 rounded-full transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-spotify-green/25"
-          >
-            <Play className="h-5 w-5 fill-black" />
-            <span>Connect with Spotify</span>
-          </button>
-
-          <p className="text-[11px] text-zinc-500">
-            Powered by Spotify Web Playback SDK &amp; OAuth 2.0 PKCE.
-          </p>
-        </div>
-      </main>
-    );
-  }
-
-  // Authenticated View: Complete Sprint Days 1–4 Application Shell
+  // Demo mode stays usable even when Spotify auth is not yet available.
+  // The login action remains available, but the product shell loads for the prototype.
   return (
     <div className="flex h-screen flex-col bg-spotify-dark text-white select-none">
       {/* Top Header */}
@@ -219,34 +176,46 @@ export default function Home() {
           </button>
 
           <div className="flex items-center gap-3 rounded-full border border-spotify-highlight bg-spotify-elevated py-1.5 px-3">
-            {user?.images?.[0]?.url ? (
+            {activeUser.images?.[0]?.url ? (
               <img
-                src={user.images[0].url}
-                alt={user.displayName || 'User'}
+                src={activeUser.images[0].url}
+                alt={activeUser.displayName || 'User'}
                 className="h-6 w-6 rounded-full object-cover"
               />
             ) : (
               <div className="flex h-6 w-6 items-center justify-center rounded-full bg-spotify-green text-xs font-bold text-black">
-                {user?.displayName?.charAt(0) || 'U'}
+                {activeUser.displayName?.charAt(0) || 'U'}
               </div>
             )}
-            <span className="text-xs font-medium text-zinc-200">{user?.displayName || 'Connected'}</span>
+            <span className="text-xs font-medium text-zinc-200">{activeUser.displayName || 'Connected'}</span>
             <span
               className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase ${
-                user?.product === 'premium' ? 'bg-spotify-green/20 text-spotify-green' : 'bg-amber-500/20 text-amber-400'
+                activeUser.product === 'premium' ? 'bg-spotify-green/20 text-spotify-green' : 'bg-amber-500/20 text-amber-400'
               }`}
             >
-              {user?.product || 'account'}
+              {activeUser.product || 'account'}
             </span>
           </div>
 
-          <button
-            onClick={logout}
-            title="Log out"
-            className="rounded-full p-2 text-spotify-subtext transition hover:bg-spotify-elevated hover:text-white"
-          >
-            <LogOut className="h-4 w-4" />
-          </button>
+          {!isAuthenticated && (
+            <button
+              onClick={login}
+              className="flex items-center gap-2 rounded-full border border-spotify-highlight bg-spotify-elevated px-3 py-1.5 text-xs text-zinc-200 transition hover:border-spotify-green/60"
+            >
+              <Play className="h-3.5 w-3.5 fill-current text-spotify-green" />
+              <span>Connect Spotify</span>
+            </button>
+          )}
+
+          {isAuthenticated && (
+            <button
+              onClick={logout}
+              title="Log out"
+              className="rounded-full p-2 text-spotify-subtext transition hover:bg-spotify-elevated hover:text-white"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
+          )}
         </div>
       </header>
 
@@ -308,7 +277,7 @@ export default function Home() {
         )}
 
         {/* Free Tier Notice */}
-        {user?.product !== 'premium' && (
+        {activeUser.product !== 'premium' && (
           <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-300">
             <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
             <div>
