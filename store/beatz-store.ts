@@ -388,8 +388,10 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
         return {};
       }
 
-      // If SDK is active, Spotify SDK automatically fires player_state_changed with exact positionMs
-      // but tick forward 1s locally for ultra-smooth UI progress
+      if (state.isSdkActive) {
+        return {};
+      }
+
       const nextProgress = state.progressMs + 1000;
 
       if (nextProgress >= state.durationMs && state.durationMs > 0) {

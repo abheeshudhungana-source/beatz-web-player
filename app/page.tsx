@@ -34,10 +34,41 @@ function formatDuration(durationMs: number): string {
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
+interface LyricLine {
+  text: string;
+  startMs: number;
+}
+
+function parseSyncedLyrics(syncedLyrics: string): LyricLine[] {
+  const lyricLines: LyricLine[] = [];
+
+  for (const rawLine of syncedLyrics.split(/\r?\n/)) {
+    const timestampPattern = /\[(\d{1,2}):(\d{2})(?:\.(\d{1,3}))?\]/g;
+    const timestamps: number[] = [];
+    let match: RegExpExecArray | null;
+
+    while ((match = timestampPattern.exec(rawLine)) !== null) {
+      const fractionalMs = Number((match[3] ?? '').padEnd(3, '0').slice(0, 3));
+      timestamps.push((Number(match[1]) * 60 + Number(match[2])) * 1000 + fractionalMs);
+    }
+
+    const text = rawLine.replace(timestampPattern, '').trim();
+    if (text) {
+      for (const startMs of timestamps) {
+        lyricLines.push({ text, startMs });
+      }
+    }
+  }
+
+  return lyricLines.sort((first, second) => first.startMs - second.startMs);
+}
+
 export default function Home() {
   const { isAuthenticated, isLoading, user, accessToken, login, logout } = useSpotifyAuth();
   const { query: searchQuery, setQuery: setSearchQuery, results: searchResults, isSearching } = useSpotifySearch();
   const [addedTrackId, setAddedTrackId] = useState<string | null>(null);
+  const [lyricsForCurrentTrack, setLyricsForCurrentTrack] = useState<LyricLine[]>([]);
+  const [lyricsStatus, setLyricsStatus] = useState<'idle' | 'loading' | 'available' | 'unavailable'>('idle');
   const lyricsViewportRef = useRef<HTMLDivElement | null>(null);
   const activeLyricRef = useRef<HTMLParagraphElement | null>(null);
   const activeUser = user ?? {
@@ -138,77 +169,68 @@ export default function Home() {
     return MOCK_TRACKS;
   }, [searchResults, searchQuery]);
 
-  const lyricsForCurrentTrack = useMemo(() => {
-    if (!currentTrack) {
-      return [{ text: 'Select a track to view its lyrics.', startMs: 0, endMs: 0 }];
+  const lyricTrackId = currentTrack?.id;
+  const lyricTrackName = currentTrack?.name;
+  const lyricArtistName = currentTrack?.artists?.[0]?.name;
+  const lyricAlbumName = currentTrack?.album?.name;
+  const lyricDurationMs = currentTrack?.durationMs;
+
+  useEffect(() => {
+    if (!lyricTrackId || !lyricTrackName || !lyricArtistName) {
+      setLyricsForCurrentTrack([]);
+      setLyricsStatus('idle');
+      return;
     }
 
-    const normalizedName = currentTrack.name.toLowerCase();
-    const lyricsByTrack: Record<string, Array<{ text: string; startMs: number; endMs: number }>> = {
-      'blinding lights': [
-        { text: 'Yeah,', startMs: 0, endMs: 2500 },
-        { text: 'I live my life in the night', startMs: 2500, endMs: 5500 },
-        { text: 'I know I should be sleeping now', startMs: 5500, endMs: 8500 },
-        { text: 'But I keep reaching for the light', startMs: 8500, endMs: 11500 },
-        { text: 'When the night gets cold', startMs: 11500, endMs: 14500 },
-        { text: 'I feel it in my bones', startMs: 14500, endMs: 17500 },
-        { text: 'And I know the city glows', startMs: 17500, endMs: 20500 },
-        { text: 'When I hear your voice in the midnight glow', startMs: 20500, endMs: 24500 },
-      ],
-      'never gonna give you up': [
-        { text: 'Never gonna give you up', startMs: 0, endMs: 2400 },
-        { text: 'Never gonna let you down', startMs: 2400, endMs: 4800 },
-        { text: 'Never gonna run around', startMs: 4800, endMs: 7200 },
-        { text: 'And desert you', startMs: 7200, endMs: 9600 },
-        { text: 'Never gonna make you cry', startMs: 9600, endMs: 12000 },
-        { text: 'Never gonna say goodbye', startMs: 12000, endMs: 14600 },
-        { text: 'Never gonna tell a lie', startMs: 14600, endMs: 17200 },
-        { text: 'And hurt you', startMs: 17200, endMs: 20000 },
-      ],
-      'midnight city': [
-        { text: 'Waiting in the dark', startMs: 0, endMs: 2600 },
-        { text: 'I can’t see your face', startMs: 2600, endMs: 5200 },
-        { text: 'The city lights are glowing', startMs: 5200, endMs: 7800 },
-        { text: 'Like a dream in motion', startMs: 7800, endMs: 10400 },
-        { text: 'Running through the night', startMs: 10400, endMs: 13200 },
-        { text: 'With the echoes of the past', startMs: 13200, endMs: 16000 },
-        { text: 'Midnight city, hear the heartbeat', startMs: 16000, endMs: 18800 },
-        { text: 'Calling us to run away', startMs: 18800, endMs: 22000 },
-      ],
-      stay: [
-        { text: 'I do the same thing, I told you that', startMs: 0, endMs: 2700 },
-        { text: 'I need to know that you are ok', startMs: 2700, endMs: 5600 },
-        { text: 'I’m not leaving you, I’m staying', startMs: 5600, endMs: 8600 },
-        { text: 'Cause the night is cold', startMs: 8600, endMs: 11200 },
-        { text: 'And I don’t want to be alone', startMs: 11200, endMs: 14200 },
-        { text: 'I want to stay with you tonight', startMs: 14200, endMs: 17000 },
-      ],
-      'shape of you': [
-        { text: 'The club isn’t the best place to find a lover', startMs: 0, endMs: 3300 },
-        { text: 'So the bar and the music are the perfect place', startMs: 3300, endMs: 6900 },
-        { text: 'To find a man', startMs: 6900, endMs: 9000 },
-        { text: 'Who can really love you', startMs: 9000, endMs: 12100 },
-        { text: 'And, oh, what a feeling', startMs: 12100, endMs: 15100 },
-        { text: 'I can’t stop staring at you', startMs: 15100, endMs: 18500 },
-      ],
-    };
+    const controller = new AbortController();
+    const params = new URLSearchParams({
+      track_name: lyricTrackName,
+      artist_name: lyricArtistName,
+      duration: String(Math.round((lyricDurationMs ?? 0) / 1000)),
+    });
+    if (lyricAlbumName) {
+      params.set('album_name', lyricAlbumName);
+    }
 
-    const matchedLyrics = Object.entries(lyricsByTrack).find(([trackName]) => normalizedName.includes(trackName));
-    return matchedLyrics ? matchedLyrics[1] : [{ text: 'Lyrics preview for this track is not available yet.', startMs: 0, endMs: 0 }];
-  }, [currentTrack]);
+    setLyricsForCurrentTrack([]);
+    setLyricsStatus('loading');
+
+    const lookupTimeout = window.setTimeout(async () => {
+      try {
+        const response = await fetch(`/api/lyrics?${params.toString()}`, { signal: controller.signal });
+        if (!response.ok) {
+          throw new Error('Lyrics lookup failed');
+        }
+
+        const result = (await response.json()) as { syncedLyrics?: string | null };
+        const lines = result.syncedLyrics ? parseSyncedLyrics(result.syncedLyrics) : [];
+        setLyricsForCurrentTrack(lines);
+        setLyricsStatus(lines.length ? 'available' : 'unavailable');
+      } catch {
+        if (!controller.signal.aborted) {
+          setLyricsForCurrentTrack([]);
+          setLyricsStatus('unavailable');
+        }
+      }
+    }, 300);
+
+    return () => {
+      window.clearTimeout(lookupTimeout);
+      controller.abort();
+    };
+  }, [lyricTrackId, lyricTrackName, lyricArtistName, lyricAlbumName, lyricDurationMs]);
 
   const activeLyricIndex = useMemo(() => {
-    if (!lyricsForCurrentTrack.length || lyricsForCurrentTrack[0].text === 'Select a track to view its lyrics.') {
+    if (!lyricsForCurrentTrack.length) {
       return -1;
     }
 
-    const activeIndex = lyricsForCurrentTrack.findIndex((line, index) => {
-      const nextLine = lyricsForCurrentTrack[index + 1];
-      const hasNext = !!nextLine;
-      return progressMs >= line.startMs && (!hasNext || progressMs < nextLine.startMs);
-    });
-
-    return activeIndex >= 0 ? activeIndex : 0;
+    for (let index = lyricsForCurrentTrack.length - 1; index >= 0; index -= 1) {
+      if (progressMs >= lyricsForCurrentTrack[index].startMs) {
+        return index;
+      }
+    }
+    return -1;
   }, [lyricsForCurrentTrack, progressMs]);
 
   useEffect(() => {
@@ -571,17 +593,21 @@ export default function Home() {
               </div>
 
               <div ref={lyricsViewportRef} className="max-h-72 space-y-2 overflow-y-auto scroll-smooth pr-2 text-sm leading-7">
+                {lyricsStatus === 'loading' && <p className="text-zinc-500">Finding synchronized lyrics...</p>}
+                {lyricsStatus === 'unavailable' && (
+                  <p className="text-zinc-500">Synchronized lyrics are not available for this track.</p>
+                )}
+                {lyricsStatus === 'idle' && <p className="text-zinc-500">Select a track to view its lyrics.</p>}
                 {lyricsForCurrentTrack.map((line, index) => {
                   const isActive = index === activeLyricIndex;
-                  const isFallback = line.text.includes('Lyrics preview');
 
                   return (
                     <p
-                      key={`${currentTrack?.id ?? 'track'}-${index}`}
+                      key={`${currentTrack?.id ?? 'track'}-${line.startMs}-${index}`}
                       ref={isActive ? activeLyricRef : null}
+                      aria-current={isActive ? 'true' : undefined}
                       className={[
                         'transition-all duration-200',
-                        isFallback ? 'text-zinc-500 italic' : '',
                         isActive ? 'scale-[1.02] font-semibold text-white' : 'text-zinc-400',
                       ].join(' ')}
                     >
