@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSpotifyAuth } from '@/hooks/useSpotifyAuth';
 import { useSpotifySearch } from '@/hooks/useSpotifySearch';
 import { useSpotifyPlayer } from '@/hooks/useSpotifyPlayer';
@@ -38,6 +38,8 @@ export default function Home() {
   const { isAuthenticated, isLoading, user, accessToken, login, logout } = useSpotifyAuth();
   const { query: searchQuery, setQuery: setSearchQuery, results: searchResults, isSearching } = useSpotifySearch();
   const [addedTrackId, setAddedTrackId] = useState<string | null>(null);
+  const lyricsViewportRef = useRef<HTMLDivElement | null>(null);
+  const activeLyricRef = useRef<HTMLParagraphElement | null>(null);
   const activeUser = user ?? {
     displayName: 'Demo User',
     product: 'premium',
@@ -138,62 +140,95 @@ export default function Home() {
 
   const lyricsForCurrentTrack = useMemo(() => {
     if (!currentTrack) {
-      return ['Select a track to view its lyrics.'];
+      return [{ text: 'Select a track to view its lyrics.', startMs: 0, endMs: 0 }];
     }
 
     const normalizedName = currentTrack.name.toLowerCase();
-    const lyricsByTrack: Record<string, string[]> = {
+    const lyricsByTrack: Record<string, Array<{ text: string; startMs: number; endMs: number }>> = {
       'blinding lights': [
-        'Yeah,\n',
-        'I live my life in the night\n',
-        'I know I should be sleeping now\n',
-        'But I keep reaching for the light\n',
-        'When the night gets cold\n',
-        'I feel it in my bones\n',
-        'And I know the city glows\n',
-        'When I hear your voice in the midnight glow',
+        { text: 'Yeah,', startMs: 0, endMs: 2500 },
+        { text: 'I live my life in the night', startMs: 2500, endMs: 5500 },
+        { text: 'I know I should be sleeping now', startMs: 5500, endMs: 8500 },
+        { text: 'But I keep reaching for the light', startMs: 8500, endMs: 11500 },
+        { text: 'When the night gets cold', startMs: 11500, endMs: 14500 },
+        { text: 'I feel it in my bones', startMs: 14500, endMs: 17500 },
+        { text: 'And I know the city glows', startMs: 17500, endMs: 20500 },
+        { text: 'When I hear your voice in the midnight glow', startMs: 20500, endMs: 24500 },
       ],
       'never gonna give you up': [
-        'Never gonna give you up\n',
-        'Never gonna let you down\n',
-        'Never gonna run around\n',
-        'And desert you\n',
-        'Never gonna make you cry\n',
-        'Never gonna say goodbye\n',
-        'Never gonna tell a lie\n',
-        'And hurt you',
+        { text: 'Never gonna give you up', startMs: 0, endMs: 2400 },
+        { text: 'Never gonna let you down', startMs: 2400, endMs: 4800 },
+        { text: 'Never gonna run around', startMs: 4800, endMs: 7200 },
+        { text: 'And desert you', startMs: 7200, endMs: 9600 },
+        { text: 'Never gonna make you cry', startMs: 9600, endMs: 12000 },
+        { text: 'Never gonna say goodbye', startMs: 12000, endMs: 14600 },
+        { text: 'Never gonna tell a lie', startMs: 14600, endMs: 17200 },
+        { text: 'And hurt you', startMs: 17200, endMs: 20000 },
       ],
       'midnight city': [
-        'Waiting in the dark\n',
-        'I can’t see your face\n',
-        'The city lights are glowing\n',
-        'Like a dream in motion\n',
-        'Running through the night\n',
-        'With the echoes of the past\n',
-        'Midnight city, hear the heartbeat\n',
-        'Calling us to run away',
+        { text: 'Waiting in the dark', startMs: 0, endMs: 2600 },
+        { text: 'I can’t see your face', startMs: 2600, endMs: 5200 },
+        { text: 'The city lights are glowing', startMs: 5200, endMs: 7800 },
+        { text: 'Like a dream in motion', startMs: 7800, endMs: 10400 },
+        { text: 'Running through the night', startMs: 10400, endMs: 13200 },
+        { text: 'With the echoes of the past', startMs: 13200, endMs: 16000 },
+        { text: 'Midnight city, hear the heartbeat', startMs: 16000, endMs: 18800 },
+        { text: 'Calling us to run away', startMs: 18800, endMs: 22000 },
       ],
       stay: [
-        'I do the same thing, I told you that\n',
-        'I need to know that you are ok\n',
-        'I’m not leaving you, I’m staying\n',
-        'Cause the night is cold\n',
-        'And I don’t want to be alone\n',
-        'I want to stay with you tonight',
+        { text: 'I do the same thing, I told you that', startMs: 0, endMs: 2700 },
+        { text: 'I need to know that you are ok', startMs: 2700, endMs: 5600 },
+        { text: 'I’m not leaving you, I’m staying', startMs: 5600, endMs: 8600 },
+        { text: 'Cause the night is cold', startMs: 8600, endMs: 11200 },
+        { text: 'And I don’t want to be alone', startMs: 11200, endMs: 14200 },
+        { text: 'I want to stay with you tonight', startMs: 14200, endMs: 17000 },
       ],
       'shape of you': [
-        'The club isn’t the best place to find a lover\n',
-        'So the bar and the music are the perfect place\n',
-        'To find a man\n',
-        'Who can really love you\n',
-        'And, oh, what a feeling\n',
-        'I can’t stop staring at you',
+        { text: 'The club isn’t the best place to find a lover', startMs: 0, endMs: 3300 },
+        { text: 'So the bar and the music are the perfect place', startMs: 3300, endMs: 6900 },
+        { text: 'To find a man', startMs: 6900, endMs: 9000 },
+        { text: 'Who can really love you', startMs: 9000, endMs: 12100 },
+        { text: 'And, oh, what a feeling', startMs: 12100, endMs: 15100 },
+        { text: 'I can’t stop staring at you', startMs: 15100, endMs: 18500 },
       ],
     };
 
     const matchedLyrics = Object.entries(lyricsByTrack).find(([trackName]) => normalizedName.includes(trackName));
-    return matchedLyrics ? matchedLyrics[1] : ['Lyrics preview for this track is not available yet.'];
+    return matchedLyrics ? matchedLyrics[1] : [{ text: 'Lyrics preview for this track is not available yet.', startMs: 0, endMs: 0 }];
   }, [currentTrack]);
+
+  const activeLyricIndex = useMemo(() => {
+    if (!lyricsForCurrentTrack.length || lyricsForCurrentTrack[0].text === 'Select a track to view its lyrics.') {
+      return -1;
+    }
+
+    const activeIndex = lyricsForCurrentTrack.findIndex((line, index) => {
+      const nextLine = lyricsForCurrentTrack[index + 1];
+      const hasNext = !!nextLine;
+      return progressMs >= line.startMs && (!hasNext || progressMs < nextLine.startMs);
+    });
+
+    return activeIndex >= 0 ? activeIndex : 0;
+  }, [lyricsForCurrentTrack, progressMs]);
+
+  useEffect(() => {
+    const viewport = lyricsViewportRef.current;
+    const activeLine = activeLyricRef.current;
+
+    if (!viewport || !activeLine || activeLyricIndex < 0) {
+      return;
+    }
+
+    const viewportBounds = viewport.getBoundingClientRect();
+    const lineBounds = activeLine.getBoundingClientRect();
+    const centeredScrollTop =
+      viewport.scrollTop +
+      lineBounds.top -
+      viewportBounds.top -
+      (viewport.clientHeight - lineBounds.height) / 2;
+
+    viewport.scrollTo({ top: centeredScrollTop, behavior: 'smooth' });
+  }, [activeLyricIndex, currentTrack?.id]);
 
   const progressPercent = durationMs > 0 ? Math.min((progressMs / durationMs) * 100, 100) : 0;
   const currentProgressLabel = formatDuration(progressMs);
@@ -520,7 +555,7 @@ export default function Home() {
               <span className="text-[11px] text-spotify-subtext font-mono">Now playing</span>
             </div>
 
-            <div className="mt-4 flex-1 rounded-2xl border border-spotify-border bg-spotify-elevated/35 p-4">
+              <div className="mt-4 flex-1 rounded-2xl border border-spotify-border bg-spotify-elevated/35 p-4">
               <div className="mb-4 flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-spotify-elevated border border-white/10">
                   {currentTrack?.album?.images?.[0]?.url ? (
@@ -535,12 +570,25 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="space-y-2 text-sm leading-7 text-zinc-300">
-                {lyricsForCurrentTrack.map((line, index) => (
-                  <p key={`${currentTrack?.id ?? 'track'}-${index}`} className={line.includes('—') || line.includes('Lyrics preview') ? 'text-zinc-500 italic' : ''}>
-                    {line}
-                  </p>
-                ))}
+              <div ref={lyricsViewportRef} className="max-h-72 space-y-2 overflow-y-auto scroll-smooth pr-2 text-sm leading-7">
+                {lyricsForCurrentTrack.map((line, index) => {
+                  const isActive = index === activeLyricIndex;
+                  const isFallback = line.text.includes('Lyrics preview');
+
+                  return (
+                    <p
+                      key={`${currentTrack?.id ?? 'track'}-${index}`}
+                      ref={isActive ? activeLyricRef : null}
+                      className={[
+                        'transition-all duration-200',
+                        isFallback ? 'text-zinc-500 italic' : '',
+                        isActive ? 'scale-[1.02] font-semibold text-white' : 'text-zinc-400',
+                      ].join(' ')}
+                    >
+                      {line.text}
+                    </p>
+                  );
+                })}
               </div>
             </div>
 
