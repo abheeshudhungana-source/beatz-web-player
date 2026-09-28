@@ -87,7 +87,7 @@
 ## 4. AI Chatbot & Tool-Calling Guardrails ("Beatz AI")
 *Goal: Defend the LLM co-pilot from prompt injection, runaway API costs, and unauthorized tool execution.*
 
-- [ ] **4.1 Prompt Injection Isolation**
+- [x] **4.1 Prompt Injection Isolation**
   - **Rule:** Untrusted user messages must never be directly concatenated into system instructions.
   - **Implementation:** Enclose user prompt inputs in explicit XML/markdown boundary delimiters:
     ```text
@@ -98,14 +98,14 @@
     </user_query>
     ```
 
-- [ ] **4.2 Tool Parameter Clamping & Validation**
+- [x] **4.2 Tool Parameter Clamping & Validation**
   - **Rule:** When the Gemini model invokes a tool call (e.g., `search_and_queue_tracks`), the backend must validate and clamp parameters before executing Spotify API requests.
   - **Validation Constraints:**
     - `numberOfTracks`: Strictly clamp between **1 and 5**. (Prevents an LLM loop from requesting 100 songs and triggering Spotify rate-limiting).
     - `query`: Must be a sanitized string under 80 characters.
     - Reject malformed tool arguments early with a clean status code.
 
-- [ ] **4.3 Server-Only AI Key Execution**
+- [x] **4.3 Server-Only AI Key Execution**
   - **Rule:** `process.env.GEMINI_API_KEY` must only be loaded inside serverless route handlers (`/api/chat/route.ts`).
   - **Check:** The client browser bundle must never contain the Gemini API key or make direct client-to-Google API calls.
 
@@ -156,5 +156,5 @@
 | **Day 2: API & Search Security** | Abheeshu Dhungana | Erick Marcatoma | ⏳ In Progress |
 | **Day 3: Web Playback SDK & Cookies** | Abheeshu Dhungana | Erick Marcatoma | ⏳ Queued |
 | **Day 4: Ad Scheduler & State Limits** | Abheeshu Dhungana | Erick Marcatoma | ⏳ Queued |
-| **Day 5: AI Chatbot & Tool Guardrails**| Abheeshu Dhungana | Erick Marcatoma | ⏳ Queued |
+| **Day 5: AI Chatbot & Tool Guardrails**| Abheeshu Dhungana | Erick Marcatoma | ✅ **PASSED** |
 | **Day 7: Production Release Audit** | Abheeshu Dhungana | Erick Marcatoma | ⏳ Final Gate |

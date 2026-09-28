@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSpotifyAuth } from '@/hooks/useSpotifyAuth';
 import { QueueDrawer } from '@/components/QueueDrawer';
+import BeatzChatDrawer from '@/components/BeatzChatDrawer';
 import TrackSearch from '@/components/TrackSearch';
 import { useBeatzStore } from '@/store/beatz-store';
 import {
@@ -42,6 +43,7 @@ export default function Home() {
     isReady,
     adState,
     isQueueOpen,
+    isChatOpen,
     togglePlay,
     nextTrack,
     previousTrack,
@@ -52,6 +54,7 @@ export default function Home() {
     finishAdBreak,
     toggleQueue,
     setQueueOpen,
+    setChatOpen,
     playTrack,
   } = useBeatzStore();
 
@@ -478,13 +481,23 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="rounded-2xl border border-spotify-border bg-spotify-surface p-5">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-spotify-subtext">
-              Coming Day 5
-            </p>
-            <h3 className="mt-3 text-lg font-bold text-white">Beatz AI Co-Pilot</h3>
+          <div
+            onClick={() => setChatOpen(true)}
+            className="rounded-2xl border border-spotify-green/40 bg-gradient-to-b from-spotify-green/10 to-spotify-surface p-5 cursor-pointer hover:border-spotify-green transition group"
+          >
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-spotify-green flex items-center gap-1.5">
+                <Sparkles className="h-3 w-3" /> Live Day 5
+              </p>
+              <span className="text-[10px] bg-spotify-green text-black font-bold px-2 py-0.5 rounded-full shadow-sm group-hover:scale-105 transition">
+                Try Now
+              </span>
+            </div>
+            <h3 className="mt-3 text-lg font-bold text-white group-hover:text-spotify-green transition">
+              Beatz AI Co-Pilot
+            </h3>
             <p className="mt-1 text-xs text-spotify-subtext leading-relaxed">
-              Gemini-powered chatbot with native tool-calling to manipulate your queue in real time.
+              Gemini-powered chatbot with native tool-calling to manipulate your queue in real time. Tap to open!
             </p>
           </div>
 
@@ -577,6 +590,15 @@ export default function Home() {
           </div>
 
           <button
+            onClick={() => setChatOpen(true)}
+            className="flex items-center gap-1.5 rounded-full bg-spotify-green/10 border border-spotify-green/30 px-3 py-1.5 text-[11px] font-semibold text-spotify-green hover:bg-spotify-green hover:text-black transition shadow-sm"
+            title="Open Beatz AI Co-Pilot"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Beatz AI</span>
+          </button>
+
+          <button
             onClick={() => setQueueOpen(true)}
             className="rounded-full bg-spotify-elevated px-3 py-1.5 text-[11px] font-medium text-spotify-green hover:bg-spotify-green hover:text-black transition"
           >
@@ -589,6 +611,12 @@ export default function Home() {
       <QueueDrawer
         isOpen={isQueueOpen}
         onClose={() => setQueueOpen(false)}
+      />
+
+      {/* Slide-Over Beatz AI Co-Pilot Chat Drawer */}
+      <BeatzChatDrawer
+        isOpen={isChatOpen}
+        onClose={() => setChatOpen(false)}
       />
     </div>
   );
