@@ -222,83 +222,53 @@ export default function Home() {
 
       {/* Main Content Area */}
       <main className="flex-1 space-y-8 overflow-y-auto p-6 lg:p-8">
-        {/* Ad Break Interstitial Countdown Overlay (Day 4 Core Value Prop) */}
         {adState.isAdPlaying && (
-          <div className="rounded-2xl border border-rose-500/40 bg-rose-500/10 p-5 shadow-lg shadow-rose-950/20 animate-in fade-in">
+          <div className="rounded-2xl border border-rose-500/40 bg-rose-500/10 p-4 shadow-lg shadow-rose-950/20 animate-in fade-in">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-rose-300">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-rose-300">
                   Ad break in progress &bull; Break #{adState.adIndex}
                 </p>
-                <h3 className="mt-1 text-lg font-bold text-white">
+                <h3 className="mt-1 text-sm font-bold text-white">
                   Sponsored message: &ldquo;Upgrade to Beatz Premium for $12.99/mo to remove ads&rdquo;
                 </h3>
               </div>
               <div className="flex items-center gap-3">
-                <span className="rounded-full border border-rose-400/40 bg-rose-500/20 px-3 py-1 font-mono text-sm font-semibold text-rose-200">
+                <span className="rounded-full border border-rose-400/40 bg-rose-500/20 px-2.5 py-1 font-mono text-[10px] font-semibold text-rose-200">
                   {formatDuration(adTimeRemaining)} remaining
                 </span>
                 <button
                   onClick={finishAdBreak}
-                  className="rounded-full bg-rose-500 hover:bg-rose-400 text-white text-xs font-semibold px-3 py-1 transition"
+                  className="rounded-full bg-rose-500 hover:bg-rose-400 text-white text-[10px] font-semibold px-2.5 py-1 transition"
                   title="Simulate ad finish"
                 >
                   Skip Demo Ad
                 </button>
               </div>
             </div>
-
-            <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-rose-950/40">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-rose-400 to-orange-300 transition-all duration-1000"
-                style={{ width: `${(adState.adProgressMs / adState.adDurationMs) * 100}%` }}
-              />
-            </div>
           </div>
         )}
 
-        {/* Ad Scheduler Simulation Banner */}
-        {!adState.isAdPlaying && (
-          <div className="flex items-center justify-between gap-4 rounded-2xl border border-spotify-border bg-spotify-surface p-4">
-            <div>
-              <p className="text-[11px] uppercase tracking-[0.2em] text-spotify-subtext font-semibold">
-                Predictable Ad Pacing
-              </p>
-              <h3 className="mt-1 text-base font-bold text-white">
-                3–5 ad breaks per hour &bull; Decoupled from user skips
-              </h3>
-            </div>
+        <div className="flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-spotify-subtext">
+          {!adState.isAdPlaying && (
             <button
               onClick={() => triggerAdBreak()}
-              className="rounded-full bg-spotify-elevated hover:bg-spotify-green hover:text-black border border-spotify-border px-4 py-2 text-xs font-semibold text-zinc-200 transition"
+              className="rounded-full border border-spotify-border bg-spotify-surface px-2.5 py-1.5 text-[10px] font-semibold text-zinc-300 transition hover:border-spotify-green/50 hover:text-spotify-green"
             >
-              Simulate Ad Break
+              Dev: Ad pacing
             </button>
-          </div>
-        )}
+          )}
 
-        {/* Playback Mode Banner */}
-        {activeUser.product === 'premium' && isSdkActive ? (
-          <div className="flex items-center justify-between rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3.5 text-xs text-emerald-300">
-            <div className="flex items-center gap-2.5">
-              <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-              <p>
-                <strong className="text-white font-semibold">Spotify Premium Active:</strong> Official Web Playback SDK streaming original DRM tracks in your browser.
-              </p>
-            </div>
-            <span className="font-mono text-[10px] text-emerald-400/80 uppercase tracking-wider">Device: Beatz Web Player</span>
-          </div>
-        ) : (
-          <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-300">
-            <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
-            <div>
-              <p className="font-semibold">Spotify Free Account Detected (Audio Preview Mode)</p>
-              <p className="mt-1 text-xs text-amber-400/80">
-                Spotify&apos;s DRM requires Spotify Premium for full in-browser streaming. You can search, queue, and enjoy verified audio previews! Full original SDK streaming activates for Spotify Premium accounts.
-              </p>
-            </div>
-          </div>
-        )}
+          {activeUser.product === 'premium' && isSdkActive ? (
+            <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1.5 text-[10px] font-semibold text-emerald-300">
+              Status: Premium SDK
+            </span>
+          ) : (
+            <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-[10px] font-semibold text-amber-300">
+              Status: Preview mode
+            </span>
+          )}
+        </div>
 
         <section className="rounded-3xl border border-spotify-border bg-spotify-surface p-5 shadow-xl shadow-black/20">
           <div className="relative flex items-center gap-3 rounded-2xl border border-spotify-highlight bg-spotify-elevated px-4 py-3">
@@ -348,7 +318,7 @@ export default function Home() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 pl-3 shrink-0">
+                    <div className="flex items-center gap-2 pl-3 shrink-0 opacity-0 transition duration-200 group-hover:opacity-100">
                       <span className="text-[11px] text-zinc-400 font-mono hidden sm:inline">
                         {formatDuration(track.durationMs)}
                       </span>
@@ -577,9 +547,13 @@ export default function Home() {
 
       {/* Sticky Bottom Player Bar */}
       <footer className="flex h-24 shrink-0 items-center justify-between border-t border-spotify-border bg-spotify-surface px-6 text-xs text-spotify-subtext z-20">
-        <div className="flex min-w-0 items-center gap-3 w-1/4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-spotify-elevated text-zinc-300">
-            <Music className="h-6 w-6 text-spotify-green" />
+        <div className="flex min-w-0 items-center gap-3 w-[22%]">
+          <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-lg border border-white/10 bg-spotify-elevated text-zinc-300 shadow-sm shadow-black/20">
+            {currentTrack?.album?.images?.[0]?.url ? (
+              <img src={currentTrack.album.images[0].url} alt={currentTrack.name} className="h-full w-full object-cover" />
+            ) : (
+              <Music className="h-6 w-6 text-spotify-green" />
+            )}
           </div>
           <div className="min-w-0">
             <p className="truncate font-semibold text-white text-sm">{nowPlaying.title}</p>
@@ -587,7 +561,7 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="flex max-w-xl flex-1 flex-col items-center gap-1.5 px-6">
+        <div className="flex w-[52%] max-w-[620px] flex-col items-center gap-1.5 px-6">
           <div className="flex items-center gap-5 text-zinc-300">
             <button
               onClick={previousTrack}
@@ -622,7 +596,7 @@ export default function Home() {
             <span className="text-[11px] font-mono text-zinc-400 w-8 text-right">
               {currentProgressLabel}
             </span>
-            <div className="h-1 flex-1 overflow-hidden rounded-full bg-spotify-elevated">
+            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-spotify-elevated">
               <div
                 className="h-full rounded-full bg-spotify-green"
                 style={{ width: `${progressPercent}%` }}
@@ -634,7 +608,7 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="flex items-center justify-end gap-3 w-1/4">
+        <div className="flex items-center justify-end gap-3 w-[22%]">
           <div className="flex items-center gap-2 rounded-full bg-spotify-elevated px-2 py-1 text-zinc-200">
             <Volume2 className="h-4 w-4" />
             <input
