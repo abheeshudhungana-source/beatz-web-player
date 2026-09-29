@@ -22,9 +22,11 @@ import {
   Pause,
   Heart,
   Volume2,
+  VolumeX,
   Plus,
   Check,
   Loader2,
+  X,
 } from 'lucide-react';
 
 function formatDuration(durationMs: number): string {
@@ -71,6 +73,7 @@ export default function Home() {
   const [lyricsStatus, setLyricsStatus] = useState<'idle' | 'loading' | 'available' | 'unavailable'>('idle');
   const lyricsViewportRef = useRef<HTMLDivElement | null>(null);
   const activeLyricRef = useRef<HTMLParagraphElement | null>(null);
+  const lastVolumeRef = useRef<number>(0.8);
   const activeUser = user ?? {
     displayName: 'Demo User',
     product: 'premium',
@@ -257,6 +260,26 @@ export default function Home() {
   const durationLabel = formatDuration(durationMs || 232000);
   const adTimeRemaining = Math.max(0, adState.adDurationMs - adState.adProgressMs);
 
+  useEffect(() => {
+    if (volume > 0) {
+      lastVolumeRef.current = volume;
+    }
+  }, [volume]);
+
+  const handleToggleMute = () => {
+    if (volume > 0) {
+      lastVolumeRef.current = volume;
+      setVolume(0);
+      return;
+    }
+
+    setVolume(lastVolumeRef.current > 0 ? lastVolumeRef.current : 0.8);
+  };
+
+  const handleSeek = (event: React.ChangeEvent<HTMLInputElement>) => {
+    seekTo((Number(event.target.value) / 100) * durationMs);
+  };
+
   if (isLoading) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-spotify-dark">
@@ -394,10 +417,21 @@ export default function Home() {
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
               placeholder="Search songs, artists, or albums (e.g. The Weeknd, Dua Lipa, Ed Sheeran)..."
-              className="w-full bg-transparent text-sm text-white placeholder:text-spotify-subtext outline-none"
+              className="w-full bg-transparent text-sm text-white placeholder:text-spotify-subtext outline-none pr-8"
             />
+            {searchQuery.trim().length > 0 && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 flex h-5 w-5 items-center justify-center rounded-full bg-white/10 text-zinc-300 transition hover:bg-white/20 hover:text-white"
+                title="Clear search"
+                aria-label="Clear search"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
             {isSearching && (
-              <Loader2 className="h-4 w-4 text-spotify-green animate-spin shrink-0" />
+              <Loader2 className="absolute right-10 h-4 w-4 text-spotify-green animate-spin shrink-0" />
             )}
           </div>
 
@@ -634,10 +668,17 @@ export default function Home() {
             <span className="text-[11px] font-mono text-zinc-400 w-8 text-right">
               {currentProgressLabel}
             </span>
-            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-spotify-elevated">
-              <div
-                className="h-full rounded-full bg-spotify-green"
-                style={{ width: `${progressPercent}%` }}
+            <div className="relative flex-1">
+              <input
+                type="range"
+                min={0}
+                max={100}
+                step={0.1}
+                value={progressPercent}
+                onChange={handleSeek}
+                style={{ ['--progress' as any]: `${progressPercent}%` }}
+                className="slider-progress h-1.5 w-full cursor-pointer appearance-none rounded-full bg-spotify-elevated"
+                aria-label="Seek through current track"
               />
             </div>
             <span className="text-[11px] font-mono text-zinc-400 w-8">
@@ -648,14 +689,28 @@ export default function Home() {
 
         <div className="flex items-center justify-end gap-3 w-[22%]">
           <div className="flex items-center gap-2 rounded-full bg-spotify-elevated px-2 py-1 text-zinc-200">
-            <Volume2 className="h-4 w-4" />
+            <button
+              type="button"
+              onClick={handleToggleMute}
+              className="flex items-center justify-center text-zinc-300 transition hover:text-white"
+              aria-label={volume === 0 ? 'Unmute audio' : 'Mute audio'}
+              title={volume === 0 ? 'Unmute' : 'Mute'}
+            >
+              {volume === 0 ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+            </button>
             <input
               type="range"
               min={0}
               max={1}
               step={0.01}
               value={volume}
-              onChange={(e) => setVolume(Number(e.target.value))}
+              onChange={(e) => {
+                const nextVolume = Number(e.target.value);
+                if (nextVolume > 0) {
+                  lastVolumeRef.current = nextVolume;
+                }
+                setVolume(nextVolume);
+              }}
               className="w-16 accent-spotify-green cursor-pointer"
               aria-label="Volume control"
             />

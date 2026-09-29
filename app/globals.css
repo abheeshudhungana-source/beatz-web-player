@@ -38,9 +38,17 @@ body {
 /* Custom Range Input (Slider) Styling */
 input[type="range"] {
   -webkit-appearance: none;
-  background: #4d4d4d;
-  border-radius: 4px;
-  height: 4px;
+  appearance: none;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 9999px;
+  height: 6px;
+  outline: none;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 9999px;
+  background: linear-gradient(to right, #1ed760 0, #1ed760 var(--progress, 0%), rgba(255,255,255,0.12) var(--progress, 0%), rgba(255,255,255,0.12) 100%);
 }
 
 input[type="range"]::-webkit-slider-thumb {
@@ -50,15 +58,62 @@ input[type="range"]::-webkit-slider-thumb {
   height: 12px;
   border-radius: 50%;
   background: #ffffff;
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 0 2px rgba(30, 215, 96, 0.2);
   cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.15s ease-in-out;
+  margin-top: -3px;
+  opacity: 1;
+  transition: transform 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
 }
 
-input[type="range"]:hover::-webkit-slider-thumb {
-  opacity: 1;
+input[type="range"]::-webkit-slider-thumb:hover,
+input[type="range"]:focus-visible::-webkit-slider-thumb {
+  transform: scale(1.06);
+  box-shadow: 0 0 0 4px rgba(30, 215, 96, 0.22);
 }
 
-.group:hover input[type="range"]::-webkit-slider-thumb {
-  opacity: 1;
+input[type="range"]::-moz-range-track {
+  height: 6px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+input[type="range"]::-moz-range-progress {
+  height: 6px;
+  border-radius: 9999px;
+  background: #1ed760;
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  background: #ffffff;
+  cursor: pointer;
+  box-shadow: 0 0 0 2px rgba(30, 215, 96, 0.2);
+}
+
+.slider-progress {
+  background: linear-gradient(to right, #1ed760 0, #1ed760 var(--progress, 0%), rgba(255,255,255,0.12) var(--progress, 0%), rgba(255,255,255,0.12) 100%);
+}
+
+.slider-progress::-webkit-slider-runnable-track {
+  background: transparent;
+}
+
+.slider-progress::-moz-range-track {
+  background: transparent;
+}
+
+.slider-progress::-moz-range-progress {
+  background: #1ed760;
+}
+
+.slider-progress {
+  --progress: 0%;
+}
+
+.slider-progress {
+  background: linear-gradient(to right, #1ed760 0, #1ed760 var(--progress), rgba(255,255,255,0.12) var(--progress), rgba(255,255,255,0.12) 100%);
 }
