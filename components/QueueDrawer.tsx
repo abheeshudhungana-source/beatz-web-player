@@ -27,6 +27,7 @@ export function QueueDrawer(props: QueueDrawerProps = {}) {
   const playTrack = useBeatzStore((state) => state.playTrack);
   const removeFromQueue = useBeatzStore((state) => state.removeFromQueue);
   const clearQueue = useBeatzStore((state) => state.clearQueue);
+  const shuffleQueue = useBeatzStore((state) => state.shuffleQueue);
   const currentTrack = useBeatzStore((state) => state.currentTrack);
 
   const isOpen = props.isOpen !== undefined ? props.isOpen : storeIsOpen;
@@ -109,20 +110,28 @@ export function QueueDrawer(props: QueueDrawerProps = {}) {
 
           {/* Upcoming List */}
           <div className="space-y-2">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2">
               <p className="text-xs font-semibold uppercase tracking-wider text-spotify-subtext">
                 Upcoming ({storeQueue.upcomingTracks.length})
               </p>
-              {storeQueue.upcomingTracks.length > 0 && (
+              <div className="flex items-center gap-2">
                 <button
-                  onClick={clearQueue}
-                  className="flex items-center gap-1 text-[11px] text-zinc-400 hover:text-red-400 transition"
-                  title="Clear all upcoming tracks"
+                  type="button"
+                  onClick={shuffleQueue}
+                  disabled={storeQueue.upcomingTracks.length < 2}
+                  className="rounded-full border border-spotify-border bg-spotify-elevated px-2 py-1 text-[10px] font-medium text-zinc-300 transition hover:border-spotify-green/50 hover:text-spotify-green disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  <Trash2 className="h-3 w-3" />
-                  <span>Clear</span>
+                  Shuffle
                 </button>
-              )}
+                <button
+                  type="button"
+                  onClick={clearQueue}
+                  disabled={storeQueue.upcomingTracks.length === 0}
+                  className="rounded-full border border-spotify-border bg-spotify-elevated px-2 py-1 text-[10px] font-medium text-zinc-300 transition hover:border-red-500/50 hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Clear
+                </button>
+              </div>
             </div>
 
             {storeQueue.upcomingTracks.length === 0 ? (

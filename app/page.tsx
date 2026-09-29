@@ -419,12 +419,24 @@ export default function Home() {
                     className="flex items-center justify-between rounded-2xl border border-spotify-border bg-spotify-elevated/60 p-3 text-left transition hover:border-spotify-green/40 hover:bg-spotify-elevated cursor-pointer group"
                   >
                     <div className="flex min-w-0 items-center gap-3 flex-1">
-                      <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl bg-spotify-green/15 text-spotify-green shrink-0">
+                      <div className="group relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl bg-spotify-green/15 text-spotify-green shrink-0">
                         {track.album?.images?.[0]?.url ? (
                           <img src={track.album.images[0].url} alt={track.name} className="h-full w-full object-cover" />
                         ) : (
                           <Music className="h-5 w-5" />
                         )}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            playTrack(track);
+                          }}
+                          className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/35 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+                          title="Play track"
+                          aria-label={`Play ${track.name}`}
+                        >
+                          <Play className="h-4 w-4 fill-current text-white ml-0.5" />
+                        </button>
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium text-white group-hover:text-spotify-green transition">{track.name}</p>
@@ -486,13 +498,6 @@ export default function Home() {
                 <Sparkles className="h-3.5 w-3.5 text-spotify-green" />
                 Queue Overview
               </div>
-              <button
-                onClick={() => setQueueOpen(true)}
-                className="flex items-center gap-2 rounded-full border border-spotify-highlight bg-spotify-elevated px-3 py-1.5 text-xs text-zinc-200 transition hover:border-spotify-green/60"
-              >
-                <ListMusic className="h-3.5 w-3.5 text-spotify-green" />
-                Open Queue
-              </button>
             </div>
 
             <div className="mt-6 space-y-4">
@@ -511,62 +516,6 @@ export default function Home() {
                     <p className="mt-0.5 truncate text-sm text-spotify-subtext">{nowPlaying.artist}</p>
                   </div>
                 </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-[11px] font-mono text-spotify-subtext">
-                  <span>{currentProgressLabel}</span>
-                  <span>{durationLabel}</span>
-                </div>
-                <div className="h-1.5 w-full overflow-hidden rounded-full bg-spotify-elevated">
-                  <div
-                    className="h-full rounded-full bg-spotify-green transition-all"
-                    style={{ width: `${progressPercent}%` }}
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center justify-center gap-4 pt-2">
-                <button
-                  onClick={previousTrack}
-                  className="rounded-full bg-spotify-elevated p-3 text-zinc-200 transition hover:text-white"
-                  title="Previous Track"
-                >
-                  <SkipBack className="h-4 w-4" />
-                </button>
-
-                <button
-                  onClick={() => {
-                    if (adState.isAdPlaying) {
-                      finishAdBreak();
-                      return;
-                    }
-                    togglePlay();
-                  }}
-                  className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-black shadow-lg shadow-white/20 transition hover:scale-105 active:scale-95"
-                  aria-label={isPlaying ? 'Pause' : 'Play'}
-                >
-                  {isPlaying ? (
-                    <Pause className="h-5 w-5 fill-current" />
-                  ) : (
-                    <Play className="h-5 w-5 fill-current ml-0.5" />
-                  )}
-                </button>
-
-                <button
-                  onClick={nextTrack}
-                  className="rounded-full bg-spotify-elevated p-3 text-zinc-200 transition hover:text-white"
-                  title="Next Track"
-                >
-                  <SkipForward className="h-4 w-4" />
-                </button>
-
-                <button
-                  className="ml-2 rounded-full bg-spotify-elevated p-3 text-zinc-400 hover:text-spotify-green transition"
-                  title="Like Song"
-                >
-                  <Heart className="h-4 w-4" />
-                </button>
               </div>
             </div>
           </section>
@@ -607,8 +556,10 @@ export default function Home() {
                       ref={isActive ? activeLyricRef : null}
                       aria-current={isActive ? 'true' : undefined}
                       className={[
-                        'transition-all duration-200',
-                        isActive ? 'scale-[1.02] font-semibold text-white' : 'text-zinc-400',
+                        'rounded-r-md border-l-2 py-1 pl-3 pr-2 transition-colors duration-200',
+                        isActive
+                          ? 'border-spotify-green bg-spotify-green/15 font-bold text-spotify-green'
+                          : 'border-transparent text-zinc-400',
                       ].join(' ')}
                     >
                       {line.text}
@@ -618,12 +569,6 @@ export default function Home() {
               </div>
             </div>
 
-            <button
-              onClick={() => setQueueOpen(true)}
-              className="mt-4 w-full rounded-xl bg-spotify-elevated hover:bg-spotify-green/10 hover:text-spotify-green border border-spotify-border py-2 text-xs font-semibold text-zinc-300 transition"
-            >
-              Open Queue Drawer
-            </button>
           </aside>
         </div>
 
@@ -639,9 +584,18 @@ export default function Home() {
               <Music className="h-6 w-6 text-spotify-green" />
             )}
           </div>
-          <div className="min-w-0">
-            <p className="truncate font-semibold text-white text-sm">{nowPlaying.title}</p>
-            <p className="truncate text-[11px] text-spotify-subtext">{nowPlaying.artist}</p>
+          <div className="flex min-w-0 items-center gap-2">
+            <div className="min-w-0">
+              <p className="truncate font-semibold text-white text-sm">{nowPlaying.title}</p>
+              <p className="truncate text-[11px] text-spotify-subtext">{nowPlaying.artist}</p>
+            </div>
+            <button
+              className="rounded-full p-1.5 text-zinc-400 hover:text-spotify-green transition"
+              title="Like Song"
+              aria-label="Like Song"
+            >
+              <Heart className="h-4 w-4" />
+            </button>
           </div>
         </div>
 

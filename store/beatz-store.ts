@@ -56,6 +56,7 @@ interface BeatzStore {
   removeFromQueue: (trackId: string) => void;
   clearQueue: () => void;
   clearAndReplaceQueue: (tracks: SpotifyTrack[]) => void;
+  shuffleQueue: () => void;
   playTrack: (track: SpotifyTrack) => void;
   togglePlay: () => void;
   nextTrack: () => void;
@@ -206,6 +207,23 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
     }));
     get().playTrack(first);
   },
+
+  shuffleQueue: () =>
+    set((state) => {
+      const upcomingTracks = [...state.queue.upcomingTracks];
+
+      for (let index = upcomingTracks.length - 1; index > 0; index -= 1) {
+        const swapIndex = Math.floor(Math.random() * (index + 1));
+        [upcomingTracks[index], upcomingTracks[swapIndex]] = [upcomingTracks[swapIndex], upcomingTracks[index]];
+      }
+
+      return {
+        queue: {
+          ...state.queue,
+          upcomingTracks,
+        },
+      };
+    }),
 
   playTrack: (track) => {
     const { isSdkActive, sdkDeviceId, queue } = get();
