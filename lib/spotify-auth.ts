@@ -2,7 +2,7 @@ import crypto from 'crypto';
 
 export const SPOTIFY_CLIENT_ID = process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID;
 export const SPOTIFY_CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET;
-export const SPOTIFY_REDIRECT_URI = process.env.NEXT_PUBLIC_REDIRECT_URI || 'http://localhost:3000/api/auth/callback/spotify';
+export const SPOTIFY_REDIRECT_URI = process.env.NEXT_PUBLIC_REDIRECT_URI || 'http://127.0.0.1:3000/api/auth/callback/spotify';
 
 function assertSpotifyConfig() {
   if (!SPOTIFY_CLIENT_ID) {
@@ -54,7 +54,7 @@ export function getRedirectUri(requestOrigin?: string): string {
   if (requestOrigin) {
     return `${requestOrigin}/api/auth/callback/spotify`;
   }
-  return 'http://localhost:3000/api/auth/callback/spotify';
+  return 'http://127.0.0.1:3000/api/auth/callback/spotify';
 }
 
 /**

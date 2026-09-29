@@ -72,6 +72,9 @@ interface BeatzStore {
 
 let previewAudio: HTMLAudioElement | null = null;
 
+const getUpcomingQueueAfterCurrent = (currentTrack: SpotifyTrack | null, upcomingTracks: SpotifyTrack[] = []) =>
+  upcomingTracks.filter((track) => track.id !== currentTrack?.id);
+
 export const useBeatzStore = create<BeatzStore>((set, get) => ({
   currentTrack: initialQueue.currentlyPlaying,
   queue: initialQueue,
@@ -126,7 +129,7 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
         currentTrack: nextTrack,
         queue: {
           currentlyPlaying: nextTrack,
-          upcomingTracks: input.slice(1),
+          upcomingTracks: getUpcomingQueueAfterCurrent(nextTrack, input.slice(1)),
           isLoading: false,
           error: null,
         },
@@ -135,7 +138,10 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
       });
     } else {
       set({
-        queue: input,
+        queue: {
+          ...input,
+          upcomingTracks: getUpcomingQueueAfterCurrent(input.currentlyPlaying ?? get().currentTrack, input.upcomingTracks),
+        },
         currentTrack: input.currentlyPlaying ?? get().currentTrack,
       });
     }
@@ -145,7 +151,7 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
     set((state) => ({
       queue: {
         ...state.queue,
-        upcomingTracks: [...state.queue.upcomingTracks, track],
+        upcomingTracks: getUpcomingQueueAfterCurrent(state.currentTrack, [...state.queue.upcomingTracks, track]),
       },
     })),
 
@@ -198,16 +204,15 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
     const { isSdkActive, sdkDeviceId, queue } = get();
 
     // Reconcile queue: prune track (and preceding items) from upcoming list
-    const upcoming = queue.upcomingTracks;
-    const trackIndex = upcoming.findIndex((t) => t.id === track.id);
-    const newUpcoming = trackIndex !== -1 ? upcoming.slice(trackIndex + 1) : upcoming;
+    const upcomingWithoutSelected = getUpcomingQueueAfterCurrent(track, queue.upcomingTracks)
+      .filter((item) => item.id !== queue.currentlyPlaying?.id);
 
     set({
       currentTrack: track,
       queue: {
         ...queue,
         currentlyPlaying: track,
-        upcomingTracks: newUpcoming,
+        upcomingTracks: upcomingWithoutSelected,
         isLoading: false,
         error: null,
       },
@@ -286,8 +291,7 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: nextIsPlaying ? 'play' : 'pause',
-          uri: currentTrack?.uri,
+          action: nextIsPlaying ? 'resume' : 'pause',
           deviceId: sdkDeviceId,
         }),
       }).catch(() => {});
@@ -313,7 +317,7 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
         fetch('/api/spotify/player', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'play', uri: currentTrack.uri }),
+          body: JSON.stringify({ action: 'resume' }),
         }).catch(() => {});
       } else {
         previewAudio.pause();
@@ -448,8 +452,10 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
         return {};
       }
 
-      // If SDK is active, Spotify SDK automatically fires player_state_changed with exact positionMs
-      // but tick forward 1s locally for ultra-smooth UI progress
+      if (state.isSdkActive) {
+        return {};
+      }
+
       const nextProgress = state.progressMs + 1000;
 
       if (nextProgress >= state.durationMs && state.durationMs > 0) {

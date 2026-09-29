@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSpotifyAuth } from '@/hooks/useSpotifyAuth';
 import { useSpotifySearch } from '@/hooks/useSpotifySearch';
 import { useSpotifyPlayer } from '@/hooks/useSpotifyPlayer';
@@ -34,10 +34,43 @@ function formatDuration(durationMs: number): string {
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
+interface LyricLine {
+  text: string;
+  startMs: number;
+}
+
+function parseSyncedLyrics(syncedLyrics: string): LyricLine[] {
+  const lyricLines: LyricLine[] = [];
+
+  for (const rawLine of syncedLyrics.split(/\r?\n/)) {
+    const timestampPattern = /\[(\d{1,2}):(\d{2})(?:\.(\d{1,3}))?\]/g;
+    const timestamps: number[] = [];
+    let match: RegExpExecArray | null;
+
+    while ((match = timestampPattern.exec(rawLine)) !== null) {
+      const fractionalMs = Number((match[3] ?? '').padEnd(3, '0').slice(0, 3));
+      timestamps.push((Number(match[1]) * 60 + Number(match[2])) * 1000 + fractionalMs);
+    }
+
+    const text = rawLine.replace(timestampPattern, '').trim();
+    if (text) {
+      for (const startMs of timestamps) {
+        lyricLines.push({ text, startMs });
+      }
+    }
+  }
+
+  return lyricLines.sort((first, second) => first.startMs - second.startMs);
+}
+
 export default function Home() {
   const { isAuthenticated, isLoading, user, accessToken, login, logout } = useSpotifyAuth();
   const { query: searchQuery, setQuery: setSearchQuery, results: searchResults, isSearching } = useSpotifySearch();
   const [addedTrackId, setAddedTrackId] = useState<string | null>(null);
+  const [lyricsForCurrentTrack, setLyricsForCurrentTrack] = useState<LyricLine[]>([]);
+  const [lyricsStatus, setLyricsStatus] = useState<'idle' | 'loading' | 'available' | 'unavailable'>('idle');
+  const lyricsViewportRef = useRef<HTMLDivElement | null>(null);
+  const activeLyricRef = useRef<HTMLParagraphElement | null>(null);
   const activeUser = user ?? {
     displayName: 'Demo User',
     product: 'premium',
@@ -136,6 +169,89 @@ export default function Home() {
     return MOCK_TRACKS;
   }, [searchResults, searchQuery]);
 
+  const lyricTrackId = currentTrack?.id;
+  const lyricTrackName = currentTrack?.name;
+  const lyricArtistName = currentTrack?.artists?.[0]?.name;
+  const lyricAlbumName = currentTrack?.album?.name;
+  const lyricDurationMs = currentTrack?.durationMs;
+
+  useEffect(() => {
+    if (!lyricTrackId || !lyricTrackName || !lyricArtistName) {
+      setLyricsForCurrentTrack([]);
+      setLyricsStatus('idle');
+      return;
+    }
+
+    const controller = new AbortController();
+    const params = new URLSearchParams({
+      track_name: lyricTrackName,
+      artist_name: lyricArtistName,
+      duration: String(Math.round((lyricDurationMs ?? 0) / 1000)),
+    });
+    if (lyricAlbumName) {
+      params.set('album_name', lyricAlbumName);
+    }
+
+    setLyricsForCurrentTrack([]);
+    setLyricsStatus('loading');
+
+    const lookupTimeout = window.setTimeout(async () => {
+      try {
+        const response = await fetch(`/api/lyrics?${params.toString()}`, { signal: controller.signal });
+        if (!response.ok) {
+          throw new Error('Lyrics lookup failed');
+        }
+
+        const result = (await response.json()) as { syncedLyrics?: string | null };
+        const lines = result.syncedLyrics ? parseSyncedLyrics(result.syncedLyrics) : [];
+        setLyricsForCurrentTrack(lines);
+        setLyricsStatus(lines.length ? 'available' : 'unavailable');
+      } catch {
+        if (!controller.signal.aborted) {
+          setLyricsForCurrentTrack([]);
+          setLyricsStatus('unavailable');
+        }
+      }
+    }, 300);
+
+    return () => {
+      window.clearTimeout(lookupTimeout);
+      controller.abort();
+    };
+  }, [lyricTrackId, lyricTrackName, lyricArtistName, lyricAlbumName, lyricDurationMs]);
+
+  const activeLyricIndex = useMemo(() => {
+    if (!lyricsForCurrentTrack.length) {
+      return -1;
+    }
+
+    for (let index = lyricsForCurrentTrack.length - 1; index >= 0; index -= 1) {
+      if (progressMs >= lyricsForCurrentTrack[index].startMs) {
+        return index;
+      }
+    }
+    return -1;
+  }, [lyricsForCurrentTrack, progressMs]);
+
+  useEffect(() => {
+    const viewport = lyricsViewportRef.current;
+    const activeLine = activeLyricRef.current;
+
+    if (!viewport || !activeLine || activeLyricIndex < 0) {
+      return;
+    }
+
+    const viewportBounds = viewport.getBoundingClientRect();
+    const lineBounds = activeLine.getBoundingClientRect();
+    const centeredScrollTop =
+      viewport.scrollTop +
+      lineBounds.top -
+      viewportBounds.top -
+      (viewport.clientHeight - lineBounds.height) / 2;
+
+    viewport.scrollTo({ top: centeredScrollTop, behavior: 'smooth' });
+  }, [activeLyricIndex, currentTrack?.id]);
+
   const progressPercent = durationMs > 0 ? Math.min((progressMs / durationMs) * 100, 100) : 0;
   const currentProgressLabel = formatDuration(progressMs);
   const durationLabel = formatDuration(durationMs || 232000);
@@ -176,22 +292,6 @@ export default function Home() {
         </div>
 
         <div className="flex items-center gap-4">
-          <button
-            onClick={() => setQueueOpen(true)}
-            className="flex items-center gap-2 rounded-full border border-spotify-highlight bg-spotify-elevated px-3 py-1.5 text-xs text-zinc-200 transition hover:border-spotify-green/60"
-          >
-            <ListMusic className="h-3.5 w-3.5 text-spotify-green" />
-            <span>Queue ({queue.upcomingTracks.length})</span>
-          </button>
-
-          <button
-            onClick={() => setChatOpen(true)}
-            className="flex items-center gap-1.5 rounded-full border border-spotify-green/30 bg-spotify-green/10 px-3 py-1.5 text-xs text-spotify-green font-medium transition hover:bg-spotify-green hover:text-black"
-          >
-            <Sparkles className="h-3.5 w-3.5" />
-            <span>Beatz AI</span>
-          </button>
-
           <div className="flex items-center gap-3 rounded-full border border-spotify-highlight bg-spotify-elevated py-1.5 px-3">
             {activeUser.images?.[0]?.url ? (
               <img
@@ -238,83 +338,53 @@ export default function Home() {
 
       {/* Main Content Area */}
       <main className="flex-1 space-y-8 overflow-y-auto p-6 lg:p-8">
-        {/* Ad Break Interstitial Countdown Overlay (Day 4 Core Value Prop) */}
         {adState.isAdPlaying && (
-          <div className="rounded-2xl border border-rose-500/40 bg-rose-500/10 p-5 shadow-lg shadow-rose-950/20 animate-in fade-in">
+          <div className="rounded-2xl border border-rose-500/40 bg-rose-500/10 p-4 shadow-lg shadow-rose-950/20 animate-in fade-in">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-rose-300">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-rose-300">
                   Ad break in progress &bull; Break #{adState.adIndex}
                 </p>
-                <h3 className="mt-1 text-lg font-bold text-white">
+                <h3 className="mt-1 text-sm font-bold text-white">
                   Sponsored message: &ldquo;Upgrade to Beatz Premium for $12.99/mo to remove ads&rdquo;
                 </h3>
               </div>
               <div className="flex items-center gap-3">
-                <span className="rounded-full border border-rose-400/40 bg-rose-500/20 px-3 py-1 font-mono text-sm font-semibold text-rose-200">
+                <span className="rounded-full border border-rose-400/40 bg-rose-500/20 px-2.5 py-1 font-mono text-[10px] font-semibold text-rose-200">
                   {formatDuration(adTimeRemaining)} remaining
                 </span>
                 <button
                   onClick={finishAdBreak}
-                  className="rounded-full bg-rose-500 hover:bg-rose-400 text-white text-xs font-semibold px-3 py-1 transition"
+                  className="rounded-full bg-rose-500 hover:bg-rose-400 text-white text-[10px] font-semibold px-2.5 py-1 transition"
                   title="Simulate ad finish"
                 >
                   Skip Demo Ad
                 </button>
               </div>
             </div>
-
-            <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-rose-950/40">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-rose-400 to-orange-300 transition-all duration-1000"
-                style={{ width: `${(adState.adProgressMs / adState.adDurationMs) * 100}%` }}
-              />
-            </div>
           </div>
         )}
 
-        {/* Ad Scheduler Simulation Banner */}
-        {!adState.isAdPlaying && (
-          <div className="flex items-center justify-between gap-4 rounded-2xl border border-spotify-border bg-spotify-surface p-4">
-            <div>
-              <p className="text-[11px] uppercase tracking-[0.2em] text-spotify-subtext font-semibold">
-                Predictable Ad Pacing
-              </p>
-              <h3 className="mt-1 text-base font-bold text-white">
-                3–5 ad breaks per hour &bull; Decoupled from user skips
-              </h3>
-            </div>
+        <div className="flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-spotify-subtext">
+          {!adState.isAdPlaying && (
             <button
               onClick={() => triggerAdBreak()}
-              className="rounded-full bg-spotify-elevated hover:bg-spotify-green hover:text-black border border-spotify-border px-4 py-2 text-xs font-semibold text-zinc-200 transition"
+              className="rounded-full border border-spotify-border bg-spotify-surface px-2.5 py-1.5 text-[10px] font-semibold text-zinc-300 transition hover:border-spotify-green/50 hover:text-spotify-green"
             >
-              Simulate Ad Break
+              Dev: Ad pacing
             </button>
-          </div>
-        )}
+          )}
 
-        {/* Playback Mode Banner */}
-        {activeUser.product === 'premium' && isSdkActive ? (
-          <div className="flex items-center justify-between rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3.5 text-xs text-emerald-300">
-            <div className="flex items-center gap-2.5">
-              <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-              <p>
-                <strong className="text-white font-semibold">Spotify Premium Active:</strong> Official Web Playback SDK streaming original DRM tracks in your browser.
-              </p>
-            </div>
-            <span className="font-mono text-[10px] text-emerald-400/80 uppercase tracking-wider">Device: Beatz Web Player</span>
-          </div>
-        ) : (
-          <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-300">
-            <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
-            <div>
-              <p className="font-semibold">Spotify Free Account Detected (Audio Preview Mode)</p>
-              <p className="mt-1 text-xs text-amber-400/80">
-                Spotify&apos;s DRM requires Spotify Premium for full in-browser streaming. You can search, queue, and enjoy verified audio previews! Full original SDK streaming activates for Spotify Premium accounts.
-              </p>
-            </div>
-          </div>
-        )}
+          {activeUser.product === 'premium' && isSdkActive ? (
+            <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1.5 text-[10px] font-semibold text-emerald-300">
+              Status: Premium SDK
+            </span>
+          ) : (
+            <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-[10px] font-semibold text-amber-300">
+              Status: Preview mode
+            </span>
+          )}
+        </div>
 
         <section className="rounded-3xl border border-spotify-border bg-spotify-surface p-5 shadow-xl shadow-black/20">
           <div className="relative flex items-center gap-3 rounded-2xl border border-spotify-highlight bg-spotify-elevated px-4 py-3">
@@ -364,7 +434,7 @@ export default function Home() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 pl-3 shrink-0">
+                    <div className="flex items-center gap-2 pl-3 shrink-0 opacity-0 transition duration-200 group-hover:opacity-100">
                       <span className="text-[11px] text-zinc-400 font-mono hidden sm:inline">
                         {formatDuration(track.durationMs)}
                       </span>
@@ -414,198 +484,160 @@ export default function Home() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-spotify-subtext font-semibold">
                 <Sparkles className="h-3.5 w-3.5 text-spotify-green" />
-                Featured Audio Player
+                Queue Overview
               </div>
               <button
                 onClick={() => setQueueOpen(true)}
                 className="flex items-center gap-2 rounded-full border border-spotify-highlight bg-spotify-elevated px-3 py-1.5 text-xs text-zinc-200 transition hover:border-spotify-green/60"
               >
                 <ListMusic className="h-3.5 w-3.5 text-spotify-green" />
-                Queue
+                Open Queue
               </button>
             </div>
 
-            <div className="mt-6 grid items-center gap-6 md:grid-cols-[200px_1fr]">
-              <div className="h-[200px] rounded-2xl bg-gradient-to-br from-violet-500 via-fuchsia-500 to-spotify-green p-3 shadow-2xl shadow-violet-900/40">
-                {currentTrack?.album?.images?.[0]?.url ? (
-                  <img
-                    src={currentTrack.album.images[0].url}
-                    alt={currentTrack.name}
-                    className="h-full w-full object-cover rounded-xl"
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center rounded-xl border border-white/20 bg-black/10 backdrop-blur-sm">
-                    <Music className="h-16 w-16 text-white/90" />
+            <div className="mt-6 space-y-4">
+              <div className="rounded-2xl border border-spotify-border bg-spotify-elevated/50 p-4">
+                <p className="text-[11px] uppercase tracking-[0.25em] text-spotify-green font-semibold">Now Playing</p>
+                <div className="mt-3 flex items-center gap-4">
+                  <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-xl bg-spotify-elevated border border-white/10 shadow-sm shadow-black/20">
+                    {currentTrack?.album?.images?.[0]?.url ? (
+                      <img src={currentTrack.album.images[0].url} alt={currentTrack.name} className="h-full w-full object-cover" />
+                    ) : (
+                      <Music className="h-7 w-7 text-spotify-green" />
+                    )}
                   </div>
-                )}
+                  <div className="min-w-0">
+                    <h2 className="truncate text-xl font-black tracking-tight text-white">{nowPlaying.title}</h2>
+                    <p className="mt-0.5 truncate text-sm text-spotify-subtext">{nowPlaying.artist}</p>
+                  </div>
+                </div>
               </div>
 
-              <div className="space-y-4">
-                <div>
-                  <p className="text-[11px] uppercase tracking-[0.25em] text-spotify-green font-semibold">
-                    Now Playing
-                  </p>
-                  <h2 className="mt-1 text-2xl font-black tracking-tight text-white">{nowPlaying.title}</h2>
-                  <p className="mt-0.5 text-sm text-spotify-subtext">{nowPlaying.artist}</p>
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-[11px] font-mono text-spotify-subtext">
+                  <span>{currentProgressLabel}</span>
+                  <span>{durationLabel}</span>
                 </div>
-
-                {/* Progress Scrubber */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between text-[11px] font-mono text-spotify-subtext">
-                    <span>{currentProgressLabel}</span>
-                    <span>{durationLabel}</span>
-                  </div>
-                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-spotify-elevated">
-                    <div
-                      className="h-full rounded-full bg-spotify-green transition-all"
-                      style={{ width: `${progressPercent}%` }}
-                    />
-                  </div>
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-spotify-elevated">
+                  <div
+                    className="h-full rounded-full bg-spotify-green transition-all"
+                    style={{ width: `${progressPercent}%` }}
+                  />
                 </div>
+              </div>
 
-                {/* Transport Buttons */}
-                <div className="flex items-center gap-4">
-                  <button
-                    onClick={previousTrack}
-                    className="rounded-full bg-spotify-elevated p-3 text-zinc-200 transition hover:text-white"
-                    title="Previous Track"
-                  >
-                    <SkipBack className="h-4 w-4" />
-                  </button>
+              <div className="flex items-center justify-center gap-4 pt-2">
+                <button
+                  onClick={previousTrack}
+                  className="rounded-full bg-spotify-elevated p-3 text-zinc-200 transition hover:text-white"
+                  title="Previous Track"
+                >
+                  <SkipBack className="h-4 w-4" />
+                </button>
 
-                  <button
-                    onClick={() => {
-                      if (adState.isAdPlaying) {
-                        finishAdBreak();
-                        return;
-                      }
-                      togglePlay();
-                    }}
-                    className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-black shadow-lg shadow-white/20 transition hover:scale-105 active:scale-95"
-                    aria-label={isPlaying ? 'Pause' : 'Play'}
-                  >
-                    {isPlaying ? (
-                      <Pause className="h-5 w-5 fill-current" />
-                    ) : (
-                      <Play className="h-5 w-5 fill-current ml-0.5" />
-                    )}
-                  </button>
+                <button
+                  onClick={() => {
+                    if (adState.isAdPlaying) {
+                      finishAdBreak();
+                      return;
+                    }
+                    togglePlay();
+                  }}
+                  className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-black shadow-lg shadow-white/20 transition hover:scale-105 active:scale-95"
+                  aria-label={isPlaying ? 'Pause' : 'Play'}
+                >
+                  {isPlaying ? (
+                    <Pause className="h-5 w-5 fill-current" />
+                  ) : (
+                    <Play className="h-5 w-5 fill-current ml-0.5" />
+                  )}
+                </button>
 
-                  <button
-                    onClick={nextTrack}
-                    className="rounded-full bg-spotify-elevated p-3 text-zinc-200 transition hover:text-white"
-                    title="Next Track"
-                  >
-                    <SkipForward className="h-4 w-4" />
-                  </button>
+                <button
+                  onClick={nextTrack}
+                  className="rounded-full bg-spotify-elevated p-3 text-zinc-200 transition hover:text-white"
+                  title="Next Track"
+                >
+                  <SkipForward className="h-4 w-4" />
+                </button>
 
-                  <button
-                    className="ml-auto rounded-full bg-spotify-elevated p-3 text-zinc-400 hover:text-spotify-green transition"
-                    title="Like Song"
-                  >
-                    <Heart className="h-4 w-4" />
-                  </button>
-                </div>
+                <button
+                  className="ml-2 rounded-full bg-spotify-elevated p-3 text-zinc-400 hover:text-spotify-green transition"
+                  title="Like Song"
+                >
+                  <Heart className="h-4 w-4" />
+                </button>
               </div>
             </div>
           </section>
 
-          {/* Up Next Preview Aside */}
           <aside className="rounded-3xl border border-spotify-border bg-spotify-surface p-5 shadow-xl shadow-black/20 flex flex-col">
             <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold text-white">Up Next in Queue</h3>
-              <span className="text-[11px] text-spotify-subtext font-mono">
-                {queue.upcomingTracks.length} upcoming
-              </span>
+              <h3 className="text-base font-bold text-white">Lyrics</h3>
+              <span className="text-[11px] text-spotify-subtext font-mono">Now playing</span>
             </div>
 
-            <div className="mt-4 space-y-2.5 flex-1 overflow-y-auto max-h-[220px]">
-              {queue.upcomingTracks.slice(0, 4).map((track, index) => (
-                <button
-                  key={`${track.id}-${index}`}
-                  onClick={() => playTrack(track)}
-                  className="flex w-full items-center justify-between rounded-xl border border-spotify-border bg-spotify-elevated/40 p-2.5 text-left transition hover:border-spotify-green/40 hover:bg-spotify-elevated group"
-                >
-                  <div className="flex min-w-0 items-center gap-3">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-800 text-xs font-bold text-zinc-400">
-                      {index + 1}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="truncate text-xs font-medium text-white group-hover:text-spotify-green transition">
-                        {track.name}
-                      </p>
-                      <p className="truncate text-[11px] text-spotify-subtext">
-                        {track.artists?.[0]?.name}
-                      </p>
-                    </div>
-                  </div>
-                  <span className="font-mono text-[11px] text-zinc-400">
-                    {formatDuration(track.durationMs)}
-                  </span>
-                </button>
-              ))}
+              <div className="mt-4 flex-1 rounded-2xl border border-spotify-border bg-spotify-elevated/35 p-4">
+              <div className="mb-4 flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-spotify-elevated border border-white/10">
+                  {currentTrack?.album?.images?.[0]?.url ? (
+                    <img src={currentTrack.album.images[0].url} alt={currentTrack.name} className="h-full w-full object-cover" />
+                  ) : (
+                    <Music className="h-5 w-5 text-spotify-green" />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-white">{currentTrack?.name ?? 'No track selected'}</p>
+                  <p className="truncate text-[11px] text-spotify-subtext">{currentTrack?.artists?.[0]?.name ?? 'Artist unavailable'}</p>
+                </div>
+              </div>
+
+              <div ref={lyricsViewportRef} className="max-h-72 space-y-2 overflow-y-auto scroll-smooth pr-2 text-sm leading-7">
+                {lyricsStatus === 'loading' && <p className="text-zinc-500">Finding synchronized lyrics...</p>}
+                {lyricsStatus === 'unavailable' && (
+                  <p className="text-zinc-500">Synchronized lyrics are not available for this track.</p>
+                )}
+                {lyricsStatus === 'idle' && <p className="text-zinc-500">Select a track to view its lyrics.</p>}
+                {lyricsForCurrentTrack.map((line, index) => {
+                  const isActive = index === activeLyricIndex;
+
+                  return (
+                    <p
+                      key={`${currentTrack?.id ?? 'track'}-${line.startMs}-${index}`}
+                      ref={isActive ? activeLyricRef : null}
+                      aria-current={isActive ? 'true' : undefined}
+                      className={[
+                        'transition-all duration-200',
+                        isActive ? 'scale-[1.02] font-semibold text-white' : 'text-zinc-400',
+                      ].join(' ')}
+                    >
+                      {line.text}
+                    </p>
+                  );
+                })}
+              </div>
             </div>
 
             <button
               onClick={() => setQueueOpen(true)}
               className="mt-4 w-full rounded-xl bg-spotify-elevated hover:bg-spotify-green/10 hover:text-spotify-green border border-spotify-border py-2 text-xs font-semibold text-zinc-300 transition"
             >
-              Open Full Queue Drawer
+              Open Queue Drawer
             </button>
           </aside>
         </div>
 
-        {/* Value Prop & Vibe Cards */}
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-          <div className="rounded-2xl border border-spotify-border bg-spotify-surface p-5">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-spotify-subtext">
-              Current Vibe
-            </p>
-            <h3 className="mt-3 text-lg font-bold text-white">On-Demand Freedom</h3>
-            <p className="mt-1 text-xs text-spotify-subtext leading-relaxed">
-              Play any track without forced mobile shuffle or 6-skip lockouts.
-            </p>
-          </div>
-
-          <div
-            onClick={() => setChatOpen(true)}
-            className="rounded-2xl border border-spotify-green/40 bg-gradient-to-b from-spotify-green/10 to-spotify-surface p-5 cursor-pointer hover:border-spotify-green transition group"
-          >
-            <div className="flex items-center justify-between">
-              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-spotify-green flex items-center gap-1.5">
-                <Sparkles className="h-3 w-3" /> Live Day 5
-              </p>
-              <span className="text-[10px] bg-spotify-green text-black font-bold px-2 py-0.5 rounded-full shadow-sm group-hover:scale-105 transition">
-                Try Now
-              </span>
-            </div>
-            <h3 className="mt-3 text-lg font-bold text-white group-hover:text-spotify-green transition">
-              Beatz AI Co-Pilot
-            </h3>
-            <p className="mt-1 text-xs text-spotify-subtext leading-relaxed">
-              Gemini-powered chatbot with native tool-calling to manipulate your queue in real time. Tap to open!
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-spotify-border bg-spotify-surface p-5">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-spotify-subtext">
-              Store &amp; SDK Status
-            </p>
-            <h3 className="mt-3 text-lg font-bold text-white">
-              {isReady ? 'State Synchronized' : 'Initializing'}
-            </h3>
-            <p className="mt-1 text-xs text-spotify-subtext leading-relaxed">
-              Zustand player store, queue manager, and ad scheduler are unified across Day 1–4 specs.
-            </p>
-          </div>
-        </div>
       </main>
 
       {/* Sticky Bottom Player Bar */}
       <footer className="flex h-24 shrink-0 items-center justify-between border-t border-spotify-border bg-spotify-surface px-6 text-xs text-spotify-subtext z-20">
-        <div className="flex min-w-0 items-center gap-3 w-1/4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-spotify-elevated text-zinc-300">
-            <Music className="h-6 w-6 text-spotify-green" />
+        <div className="flex min-w-0 items-center gap-3 w-[22%]">
+          <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-lg border border-white/10 bg-spotify-elevated text-zinc-300 shadow-sm shadow-black/20">
+            {currentTrack?.album?.images?.[0]?.url ? (
+              <img src={currentTrack.album.images[0].url} alt={currentTrack.name} className="h-full w-full object-cover" />
+            ) : (
+              <Music className="h-6 w-6 text-spotify-green" />
+            )}
           </div>
           <div className="min-w-0">
             <p className="truncate font-semibold text-white text-sm">{nowPlaying.title}</p>
@@ -613,7 +645,7 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="flex max-w-xl flex-1 flex-col items-center gap-1.5 px-6">
+        <div className="flex w-[52%] max-w-[620px] flex-col items-center gap-1.5 px-6">
           <div className="flex items-center gap-5 text-zinc-300">
             <button
               onClick={previousTrack}
@@ -648,7 +680,7 @@ export default function Home() {
             <span className="text-[11px] font-mono text-zinc-400 w-8 text-right">
               {currentProgressLabel}
             </span>
-            <div className="h-1 flex-1 overflow-hidden rounded-full bg-spotify-elevated">
+            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-spotify-elevated">
               <div
                 className="h-full rounded-full bg-spotify-green"
                 style={{ width: `${progressPercent}%` }}
@@ -660,7 +692,7 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="flex items-center justify-end gap-3 w-1/4">
+        <div className="flex items-center justify-end gap-3 w-[22%]">
           <div className="flex items-center gap-2 rounded-full bg-spotify-elevated px-2 py-1 text-zinc-200">
             <Volume2 className="h-4 w-4" />
             <input
