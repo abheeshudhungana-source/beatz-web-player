@@ -42,6 +42,15 @@ html {
   scrollbar-color: rgba(255, 255, 255, 0.28) rgba(255, 255, 255, 0.05);
 }
 
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 /* Custom Range Input (Slider) Styling */
 input[type="range"] {
   -webkit-appearance: none;

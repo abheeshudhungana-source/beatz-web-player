@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useBeatzStore } from '@/store/beatz-store';
 import { SpotifyTrack } from '@/types/spotify';
+import ReactMarkdown from 'react-markdown';
 import {
   Sparkles,
   X,
@@ -210,7 +211,7 @@ export default function BeatzChatDrawer({ isOpen, onClose }: BeatzChatDrawerProp
           )}
 
           {/* Quick Prompt Chips */}
-          <div className="px-4 py-2.5 bg-spotify-elevated/40 border-b border-spotify-border/60 overflow-x-auto flex items-center gap-2 no-scrollbar">
+          <div className="px-4 py-2.5 bg-spotify-elevated/40 border-b border-spotify-border/60 overflow-x-auto overscroll-x-contain flex items-center gap-2 no-scrollbar">
             {QUICK_PROMPTS.map((chip, idx) => (
               <button
                 key={idx}
@@ -238,13 +239,19 @@ export default function BeatzChatDrawer({ isOpen, onClose }: BeatzChatDrawerProp
 
                 <div className={`max-w-[85%] space-y-2.5`}>
                   <div
-                    className={`rounded-2xl px-4 py-3 text-xs leading-relaxed ${
+                    className={`rounded-2xl px-5 py-3.5 text-xs leading-relaxed ${
                       msg.sender === 'user'
                         ? 'bg-spotify-green text-black font-medium ml-auto shadow-md'
                         : 'bg-spotify-elevated text-zinc-200 border border-spotify-border'
                     }`}
                   >
-                    <p className="whitespace-pre-wrap">{msg.text}</p>
+                    {msg.sender === 'ai' ? (
+                      <ReactMarkdown components={{ p: ({ children }) => <p className="whitespace-pre-wrap">{children}</p> }}>
+                        {msg.text}
+                      </ReactMarkdown>
+                    ) : (
+                      <p className="whitespace-pre-wrap">{msg.text}</p>
+                    )}
                   </div>
 
                   {/* Render Track Recommendation Cards */}
@@ -348,7 +355,7 @@ export default function BeatzChatDrawer({ isOpen, onClose }: BeatzChatDrawerProp
                 e.preventDefault();
                 handleSend();
               }}
-              className="flex items-center gap-2"
+              className="flex h-11 items-stretch overflow-hidden rounded-xl border border-spotify-border bg-spotify-elevated transition focus-within:border-spotify-green"
             >
               <input
                 ref={inputRef}
@@ -358,12 +365,12 @@ export default function BeatzChatDrawer({ isOpen, onClose }: BeatzChatDrawerProp
                 placeholder="Ask Beatz AI (e.g. 'Queue 3 upbeat synthwave songs')..."
                 disabled={isLoading}
                 maxLength={300}
-                className="flex-1 bg-spotify-elevated border border-spotify-border focus:border-spotify-green text-xs text-white px-3.5 py-3 rounded-xl outline-none placeholder:text-zinc-500 transition shadow-inner disabled:opacity-50"
+                className="min-w-0 flex-1 bg-transparent text-xs text-white px-3.5 py-0 outline-none placeholder:text-zinc-400 transition disabled:opacity-50"
               />
               <button
                 type="submit"
                 disabled={isLoading || !input.trim()}
-                className="h-10 w-10 rounded-xl bg-spotify-green hover:bg-spotify-green-hover disabled:opacity-40 text-black flex items-center justify-center transition shadow-lg shadow-spotify-green/20 shrink-0"
+                className="flex h-full w-12 shrink-0 items-center justify-center border-l border-spotify-surface bg-spotify-green text-black transition hover:bg-spotify-green-hover disabled:opacity-40"
                 title="Send Prompt"
               >
                 <Send className="h-4 w-4" />
