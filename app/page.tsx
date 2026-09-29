@@ -308,7 +308,8 @@ export default function Home() {
               <span>Spotify SDK Active</span>
             </span>
           ) : (
-            <span className="flex items-center gap-1.5 rounded-full border border-spotify-highlight bg-spotify-elevated px-2 py-0.5 text-[11px] font-mono font-medium text-spotify-green">
+            <span className="flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-0.5 text-[11px] font-mono font-medium text-amber-300">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
               <span>Preview Mode</span>
             </span>
           )}
@@ -398,15 +399,6 @@ export default function Home() {
             </button>
           )}
 
-          {activeUser.product === 'premium' && isSdkActive ? (
-            <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1.5 text-[10px] font-semibold text-emerald-300">
-              Status: Premium SDK
-            </span>
-          ) : (
-            <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-[10px] font-semibold text-amber-300">
-              Status: Preview mode
-            </span>
-          )}
         </div>
 
         <section className="rounded-3xl border border-spotify-border bg-spotify-surface p-5 shadow-xl shadow-black/20">
@@ -551,6 +543,36 @@ export default function Home() {
                   </div>
                 </div>
               </div>
+
+              <div className="rounded-2xl border border-spotify-border bg-spotify-elevated/40 p-3">
+                <div className="mb-3 flex items-center justify-between">
+                  <p className="text-[11px] uppercase tracking-[0.22em] text-spotify-subtext font-semibold">Up Next</p>
+                  <span className="text-[10px] text-zinc-400 font-mono">{queue.upcomingTracks.length} tracks</span>
+                </div>
+
+                {queue.upcomingTracks.length > 0 ? (
+                  <div className="space-y-2">
+                    {queue.upcomingTracks.slice(0, 5).map((track, index) => (
+                      <button
+                        key={`${track.id}-${index}`}
+                        onClick={() => playTrack(track)}
+                        className="flex w-full items-center gap-3 rounded-xl border border-transparent bg-transparent px-2 py-1.5 text-left transition hover:border-spotify-green/30 hover:bg-spotify-elevated/60"
+                      >
+                        <span className="w-4 text-center font-mono text-[10px] text-zinc-500">{index + 1}</span>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-xs font-medium text-white">{track.name}</p>
+                          <p className="truncate text-[10px] text-spotify-subtext">
+                            {track.artists.map((artist) => artist.name).join(', ')}
+                          </p>
+                        </div>
+                        <span className="font-mono text-[10px] text-zinc-500">{formatDuration(track.durationMs)}</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-zinc-500">No tracks queued yet. Search for something to play next.</p>
+                )}
+              </div>
             </div>
           </section>
 
@@ -592,7 +614,7 @@ export default function Home() {
                       className={[
                         'rounded-r-md border-l-2 py-1 pl-3 pr-2 transition-colors duration-200',
                         isActive
-                          ? 'border-spotify-green bg-spotify-green/15 font-bold text-spotify-green'
+                          ? 'border-spotify-green/70 bg-transparent font-bold text-white'
                           : 'border-transparent text-zinc-400',
                       ].join(' ')}
                     >
@@ -618,13 +640,13 @@ export default function Home() {
               <Music className="h-6 w-6 text-spotify-green" />
             )}
           </div>
-          <div className="flex min-w-0 items-center gap-2">
+          <div className="flex min-w-0 items-center gap-2 self-center">
             <div className="min-w-0">
               <p className="truncate font-semibold text-white text-sm">{nowPlaying.title}</p>
               <p className="truncate text-[11px] text-spotify-subtext">{nowPlaying.artist}</p>
             </div>
             <button
-              className="rounded-full p-1.5 text-zinc-400 hover:text-spotify-green transition"
+              className="self-center rounded-full p-1.5 text-zinc-400 hover:text-spotify-green transition"
               title="Like Song"
               aria-label="Like Song"
             >
