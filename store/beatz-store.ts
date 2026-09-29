@@ -23,6 +23,8 @@ interface BeatzStore {
   currentTrack: SpotifyTrack | null;
   queue: QueueState;
   isPlaying: boolean;
+  isShuffleEnabled: boolean;
+  repeatMode: 0 | 1 | 2;
   durationMs: number;
   progressMs: number;
   volume: number;
@@ -57,7 +59,10 @@ interface BeatzStore {
   clearQueue: () => void;
   clearAndReplaceQueue: (tracks: SpotifyTrack[]) => void;
   shuffleQueue: () => void;
+  toggleShuffle: () => void;
+  cycleRepeat: () => void;
   playTrack: (track: SpotifyTrack) => void;
+  finishTrack: () => void;
   togglePlay: () => void;
   nextTrack: () => void;
   previousTrack: () => void;
@@ -81,6 +86,8 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
   currentTrack: initialQueue.currentlyPlaying,
   queue: initialQueue,
   isPlaying: false,
+  isShuffleEnabled: false,
+  repeatMode: 0,
   durationMs: MOCK_TRACKS[0].durationMs,
   progressMs: 0,
   volume: 0.8,
@@ -225,6 +232,36 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
       };
     }),
 
+  toggleShuffle: () => {
+    const { isShuffleEnabled, isSdkActive, sdkDeviceId } = get();
+    const shuffle = !isShuffleEnabled;
+    set({ isShuffleEnabled: shuffle });
+    if (shuffle) {
+      get().shuffleQueue();
+    }
+    if (isSdkActive && sdkDeviceId) {
+      fetch('/api/spotify/player', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'shuffle', shuffleState: shuffle, deviceId: sdkDeviceId }),
+      }).catch(() => {});
+    }
+  },
+
+  cycleRepeat: () => {
+    const { repeatMode, isSdkActive, sdkDeviceId } = get();
+    const nextRepeatMode = ((repeatMode + 1) % 3) as 0 | 1 | 2;
+    const repeatState = nextRepeatMode === 0 ? 'off' : nextRepeatMode === 1 ? 'context' : 'track';
+    set({ repeatMode: nextRepeatMode });
+    if (isSdkActive && sdkDeviceId) {
+      fetch('/api/spotify/player', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'repeat', repeatState, deviceId: sdkDeviceId }),
+      }).catch(() => {});
+    }
+  },
+
   playTrack: (track) => {
     const { isSdkActive, sdkDeviceId, queue } = get();
 
@@ -256,9 +293,7 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
           const audioUrl = getPreviewAudioUrl(track);
           previewAudio = new Audio(audioUrl);
           previewAudio.volume = get().volume;
-          previewAudio.onended = () => {
-            get().nextTrack();
-          };
+          previewAudio.onended = () => get().finishTrack();
 
           const playPromise = previewAudio.play();
           if (playPromise !== undefined) {
@@ -335,9 +370,7 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
         const audioUrl = getPreviewAudioUrl(currentTrack);
         previewAudio = new Audio(audioUrl);
         previewAudio.volume = volume;
-        previewAudio.onended = () => {
-          get().nextTrack();
-        };
+        previewAudio.onended = () => get().finishTrack();
       }
 
       if (nextIsPlaying) {
@@ -395,6 +428,23 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
       isPlaying: true,
     });
     get().playTrack(next);
+  },
+
+  finishTrack: () => {
+    const { repeatMode, currentTrack } = get();
+    if (repeatMode === 2 && currentTrack) {
+      get().playTrack(currentTrack);
+      return;
+    }
+    if (repeatMode === 1 && currentTrack) {
+      set((state) => ({
+        queue: {
+          ...state.queue,
+          upcomingTracks: [...state.queue.upcomingTracks, currentTrack],
+        },
+      }));
+    }
+    get().nextTrack();
   },
 
   previousTrack: () => {
@@ -501,7 +551,7 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
       const nextProgress = state.progressMs + 1000;
 
       if (nextProgress >= state.durationMs && state.durationMs > 0) {
-        get().nextTrack();
+        get().finishTrack();
         return {};
       }
 

@@ -19,8 +19,15 @@ import {
   Search,
   SkipBack,
   SkipForward,
+  Shuffle,
+  Repeat,
+  Repeat1,
   Pause,
   Heart,
+  MoreHorizontal,
+  Mic2,
+  Share2,
+  Copy,
   Volume2,
   VolumeX,
   Plus,
@@ -71,7 +78,9 @@ export default function Home() {
   const [addedTrackId, setAddedTrackId] = useState<string | null>(null);
   const [lyricsForCurrentTrack, setLyricsForCurrentTrack] = useState<LyricLine[]>([]);
   const [lyricsStatus, setLyricsStatus] = useState<'idle' | 'loading' | 'available' | 'unavailable'>('idle');
+  const [isTrackOptionsOpen, setIsTrackOptionsOpen] = useState(false);
   const lyricsViewportRef = useRef<HTMLDivElement | null>(null);
+  const lyricsPanelRef = useRef<HTMLElement | null>(null);
   const activeLyricRef = useRef<HTMLParagraphElement | null>(null);
   const lastVolumeRef = useRef<number>(0.8);
   const activeUser = user ?? {
@@ -93,6 +102,8 @@ export default function Home() {
     currentTrack,
     queue,
     isPlaying,
+    isShuffleEnabled,
+    repeatMode,
     progressMs,
     durationMs,
     volume,
@@ -103,6 +114,8 @@ export default function Home() {
     togglePlay,
     nextTrack,
     previousTrack,
+    toggleShuffle,
+    cycleRepeat,
     setVolume,
     seekTo,
     tickPlayer,
@@ -278,6 +291,30 @@ export default function Home() {
 
   const handleSeek = (event: React.ChangeEvent<HTMLInputElement>) => {
     seekTo((Number(event.target.value) / 100) * durationMs);
+  };
+
+  const handleCopyTrackDetails = async () => {
+    if (!currentTrack) return;
+    try {
+      await navigator.clipboard.writeText(`${currentTrack.name} - ${currentTrack.artists.map((artist) => artist.name).join(', ')}`);
+      setIsTrackOptionsOpen(false);
+    } catch {
+      setIsTrackOptionsOpen(false);
+    }
+  };
+
+  const handleShareTrack = async () => {
+    if (!currentTrack) return;
+    const trackUrl = `https://open.spotify.com/track/${currentTrack.id}`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: currentTrack.name, text: currentTrack.artists.map((artist) => artist.name).join(', '), url: trackUrl });
+      } else {
+        await navigator.clipboard.writeText(`${currentTrack.name} - ${currentTrack.artists.map((artist) => artist.name).join(', ')} ${trackUrl}`);
+      }
+    } catch {
+    }
+    setIsTrackOptionsOpen(false);
   };
 
   if (isLoading) {
@@ -576,7 +613,7 @@ export default function Home() {
             </div>
           </section>
 
-          <aside className="rounded-3xl border border-spotify-border bg-spotify-surface p-5 shadow-xl shadow-black/20 flex flex-col">
+          <aside ref={lyricsPanelRef} id="lyrics-panel" className="rounded-3xl border border-spotify-border bg-spotify-surface p-5 shadow-xl shadow-black/20 flex flex-col">
             <div className="flex items-center justify-between">
               <h3 className="text-base font-bold text-white">Lyrics</h3>
               <span className="text-[11px] text-spotify-subtext font-mono">Now playing</span>
@@ -652,11 +689,55 @@ export default function Home() {
             >
               <Heart className="h-4 w-4" />
             </button>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setIsTrackOptionsOpen((open) => !open)}
+                className="rounded-full p-1.5 text-zinc-400 transition hover:bg-spotify-elevated hover:text-white"
+                title="Track options"
+                aria-label="Track options"
+                aria-expanded={isTrackOptionsOpen}
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </button>
+              {isTrackOptionsOpen && (
+                <div className="absolute bottom-full left-0 z-30 mb-2 w-44 rounded-lg border border-spotify-border bg-[#202020] p-1 shadow-xl shadow-black/40" role="menu">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => void handleShareTrack()}
+                    className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-xs text-zinc-200 transition hover:bg-white/10"
+                  >
+                    <Share2 className="h-3.5 w-3.5" />
+                    Share track
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => void handleCopyTrackDetails()}
+                    className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-xs text-zinc-200 transition hover:bg-white/10"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                    Copy track details
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
         <div className="flex w-[52%] max-w-[620px] flex-col items-center gap-1.5 px-6">
           <div className="flex items-center gap-5 text-zinc-300">
+            <button
+              type="button"
+              onClick={toggleShuffle}
+              className={`transition hover:text-white ${isShuffleEnabled ? 'text-spotify-green' : ''}`}
+              title={isShuffleEnabled ? 'Turn shuffle off' : 'Turn shuffle on'}
+              aria-label={isShuffleEnabled ? 'Turn shuffle off' : 'Turn shuffle on'}
+              aria-pressed={isShuffleEnabled}
+            >
+              <Shuffle className="h-4 w-4" />
+            </button>
             <button
               onClick={previousTrack}
               className="transition hover:text-white"
@@ -684,6 +765,16 @@ export default function Home() {
             >
               <SkipForward className="h-4 w-4" />
             </button>
+            <button
+              type="button"
+              onClick={cycleRepeat}
+              className={`relative transition hover:text-white ${repeatMode > 0 ? 'text-spotify-green' : ''}`}
+              title={repeatMode === 0 ? 'Turn repeat on' : repeatMode === 1 ? 'Repeat current track' : 'Turn repeat off'}
+              aria-label={repeatMode === 0 ? 'Turn repeat on' : repeatMode === 1 ? 'Repeat current track' : 'Turn repeat off'}
+              aria-pressed={repeatMode > 0}
+            >
+              {repeatMode === 2 ? <Repeat1 className="h-4 w-4" /> : <Repeat className="h-4 w-4" />}
+            </button>
           </div>
 
           <div className="flex items-center gap-3 w-full">
@@ -709,8 +800,18 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="flex items-center justify-end gap-3 w-[22%]">
-          <div className="flex items-center gap-2 rounded-full bg-spotify-elevated px-2 py-1 text-zinc-200">
+        <div className="flex items-center justify-end gap-2 w-[22%]">
+          <button
+            type="button"
+            onClick={() => lyricsPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+            className="rounded-full p-2 text-zinc-400 transition hover:bg-spotify-elevated hover:text-white"
+            title="Go to lyrics"
+            aria-label="Go to lyrics"
+            aria-controls="lyrics-panel"
+          >
+            <Mic2 className="h-4 w-4" />
+          </button>
+          <div className="flex items-center gap-1 rounded-full bg-spotify-elevated px-1.5 py-1 text-zinc-200">
             <button
               type="button"
               onClick={handleToggleMute}
@@ -733,14 +834,15 @@ export default function Home() {
                 }
                 setVolume(nextVolume);
               }}
-              className="w-16 accent-spotify-green cursor-pointer"
+              style={{ ['--progress' as any]: `${volume * 100}%` }}
+              className="w-14 accent-spotify-green cursor-pointer"
               aria-label="Volume control"
             />
           </div>
 
           <button
             onClick={() => setChatOpen(true)}
-            className="flex items-center gap-1.5 rounded-full bg-spotify-green/10 border border-spotify-green/30 px-3 py-1.5 text-[11px] font-semibold text-spotify-green hover:bg-spotify-green hover:text-black transition shadow-sm"
+            className="flex items-center gap-1.5 rounded-full bg-spotify-green/10 border border-spotify-green/30 px-2 py-1.5 text-[11px] font-semibold text-spotify-green hover:bg-spotify-green hover:text-black transition shadow-sm"
             title="Open Beatz AI Co-Pilot"
           >
             <Sparkles className="h-3.5 w-3.5" />
@@ -749,7 +851,7 @@ export default function Home() {
 
           <button
             onClick={() => setQueueOpen(true)}
-            className="rounded-full bg-spotify-elevated px-3 py-1.5 text-[11px] font-medium text-spotify-green hover:bg-spotify-green hover:text-black transition"
+            className="rounded-full bg-spotify-elevated px-2 py-1.5 text-[11px] font-medium text-spotify-green hover:bg-spotify-green hover:text-black transition"
           >
             Queue
           </button>

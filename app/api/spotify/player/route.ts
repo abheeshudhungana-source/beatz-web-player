@@ -5,7 +5,7 @@ import { spotifyFetch } from '@/lib/spotify';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json().catch(() => ({}));
-    const { action, uri, deviceId, positionMs, volumePercent } = body;
+    const { action, uri, deviceId, positionMs, volumePercent, shuffleState, repeatState } = body;
 
     const cookieStore = cookies();
     const accessToken = cookieStore.get('spotify_access_token')?.value || null;
@@ -118,6 +118,26 @@ export async function POST(request: NextRequest) {
     // 7. Set Volume (0-100)
     if (action === 'volume' && typeof volumePercent === 'number') {
       const endpoint = `/me/player/volume?volume_percent=${Math.round(volumePercent)}${deviceId ? `&device_id=${encodeURIComponent(deviceId)}` : ''}`;
+      const res = await spotifyFetch<void>(endpoint, { method: 'PUT' }, accessToken);
+      return NextResponse.json({
+        success: res.status === 204 || res.status === 200,
+        status: res.status,
+        error: res.error,
+      });
+    }
+
+    if (action === 'shuffle' && typeof shuffleState === 'boolean') {
+      const endpoint = `/me/player/shuffle?state=${shuffleState}${deviceId ? `&device_id=${encodeURIComponent(deviceId)}` : ''}`;
+      const res = await spotifyFetch<void>(endpoint, { method: 'PUT' }, accessToken);
+      return NextResponse.json({
+        success: res.status === 204 || res.status === 200,
+        status: res.status,
+        error: res.error,
+      });
+    }
+
+    if (action === 'repeat' && ['off', 'context', 'track'].includes(repeatState)) {
+      const endpoint = `/me/player/repeat?state=${repeatState}${deviceId ? `&device_id=${encodeURIComponent(deviceId)}` : ''}`;
       const res = await spotifyFetch<void>(endpoint, { method: 'PUT' }, accessToken);
       return NextResponse.json({
         success: res.status === 204 || res.status === 200,

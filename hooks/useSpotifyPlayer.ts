@@ -40,13 +40,13 @@ export function useSpotifyPlayer({ accessToken, enabled }: UseSpotifyPlayerArgs)
   const [sdkReady, setSdkReady] = useState(false);
 
   const {
-    volume,
     setSdkDeviceId,
     setSdkActive,
     setIsPremium,
     setSdkError,
     syncSdkState,
   } = useBeatzStore();
+  const volume = useBeatzStore((state) => state.volume);
 
   const getFreshToken = useCallback(async (callback: (token: string) => void) => {
     try {
@@ -92,7 +92,7 @@ export function useSpotifyPlayer({ accessToken, enabled }: UseSpotifyPlayerArgs)
       const player = new window.Spotify.Player({
         name: 'Beatz Web Player',
         getOAuthToken: getFreshToken,
-        volume: volume ?? 0.8,
+        volume: useBeatzStore.getState().volume,
       });
 
       playerRef.current = player;
@@ -217,7 +217,11 @@ export function useSpotifyPlayer({ accessToken, enabled }: UseSpotifyPlayerArgs)
         playerRef.current = null;
       }
     };
-  }, [accessToken, enabled, getFreshToken, volume, setSdkDeviceId, setSdkActive, setIsPremium, setSdkError, syncSdkState]);
+  }, [accessToken, enabled, getFreshToken, setSdkDeviceId, setSdkActive, setIsPremium, setSdkError, syncSdkState]);
+
+  useEffect(() => {
+    void playerRef.current?.setVolume(volume).catch(() => {});
+  }, [volume]);
 
   return {
     isInitializing,
