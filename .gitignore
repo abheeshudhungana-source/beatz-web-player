@@ -41,3 +41,10 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+
+# Local build artifacts
+compile.log
+tsconfig.tsbuildinfo
+
+# Nested project folders that are not part of the main web app
+l2assessment/
