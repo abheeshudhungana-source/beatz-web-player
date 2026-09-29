@@ -475,6 +475,11 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
         return {};
       }
 
+      // Don't tick while a seek is in progress — prevents overwriting optimistic seek position
+      if (state.isSeeking) {
+        return {};
+      }
+
       const nextProgress = state.progressMs + 1000;
 
       if (nextProgress >= state.durationMs && state.durationMs > 0) {
