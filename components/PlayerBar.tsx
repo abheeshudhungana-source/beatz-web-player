@@ -1,7 +1,7 @@
 'use client';
 
 import { useBeatzStore } from '@/store/beatz-store';
-import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, ListMusic, MessageSquare, Laptop2 } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, ListMusic, MessageSquare, Laptop2, Crown } from 'lucide-react';
 
 export default function PlayerBar() {
   const currentTrack = useBeatzStore((state) => state.currentTrack);
@@ -19,6 +19,8 @@ export default function PlayerBar() {
   const isQueueOpen = useBeatzStore((state) => state.isQueueOpen);
   const toggleChat = useBeatzStore((state) => state.toggleChat);
   const isChatOpen = useBeatzStore((state) => state.isChatOpen);
+  const isPremium = useBeatzStore((state) => state.isPremium);
+  const sdkError = useBeatzStore((state) => state.sdkError);
 
   // Format millisecond timestamp to mm:ss
   const formatTime = (ms: number) => {
@@ -36,8 +38,25 @@ export default function PlayerBar() {
     seekTo(targetMs);
   };
 
+  // Show premium banner when SDK failed due to non-premium (sdkError set + not premium)
+  const showPremiumBanner = !isPremium && !!sdkError;
+
   return (
-    <footer className="h-24 border-t border-spotify-border bg-spotify-surface px-6 flex items-center justify-between text-xs text-spotify-subtext z-20 sticky bottom-0">
+    <>
+      {/* Non-Premium Warning Banner */}
+      {showPremiumBanner && (
+        <div className="sticky bottom-24 z-30 mx-auto w-full max-w-2xl px-4 pb-2 pointer-events-none">
+          <div className="flex items-center gap-2.5 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2.5 text-amber-300 shadow-lg backdrop-blur-sm pointer-events-auto">
+            <Crown className="h-4 w-4 shrink-0 text-amber-400" />
+            <div className="flex-1 min-w-0">
+              <p className="text-[12px] font-semibold leading-tight">Spotify Premium required for full playback</p>
+              <p className="text-[11px] text-amber-400/70 mt-0.5 truncate">Running in 30-second preview mode · Upgrade at spotify.com/premium</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <footer className="h-24 border-t border-spotify-border bg-spotify-surface px-6 flex items-center justify-between text-xs text-spotify-subtext z-20 sticky bottom-0">
       {/* Left: Track Information & Album Thumbnail */}
       <div className="flex items-center gap-4 w-1/4 min-w-[200px]">
         {currentTrack?.album?.images?.[0]?.url ? (
@@ -181,5 +200,6 @@ export default function PlayerBar() {
         </div>
       </div>
     </footer>
+    </>
   );
 }
