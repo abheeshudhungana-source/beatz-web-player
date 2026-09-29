@@ -44,10 +44,12 @@ export default function BeatzChatDrawer({ isOpen, onClose }: BeatzChatDrawerProp
   const currentTrack = useBeatzStore((state) => state.currentTrack);
   const playTrack = useBeatzStore((state) => state.playTrack);
   const addToQueue = useBeatzStore((state) => state.addToQueue);
+  const addMultipleToQueue = useBeatzStore((state) => state.addMultipleToQueue);
 
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [addedTrackIds, setAddedTrackIds] = useState<Record<string, boolean>>({});
+  const [queueNotice, setQueueNotice] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'welcome',
@@ -109,9 +111,21 @@ export default function BeatzChatDrawer({ isOpen, onClose }: BeatzChatDrawerProp
 
       setMessages((prev) => [...prev, aiMessage]);
 
-      // If user prompted to play a track immediately and tracks were returned
-      if (data.action === 'play' && data.tracks && data.tracks.length > 0) {
+      // Automatically bridge tool results directly to the live player and queue
+      if (data.action === 'queue' && data.tracks && data.tracks.length > 0) {
+        addMultipleToQueue(data.tracks);
+        data.tracks.forEach((t: SpotifyTrack) => {
+          setAddedTrackIds((prev) => ({ ...prev, [t.id]: true }));
+        });
+        setQueueNotice(`⚡ Added ${data.tracks.length} track${data.tracks.length > 1 ? 's' : ''} directly to your queue!`);
+        setTimeout(() => setQueueNotice(null), 4000);
+      } else if (data.action === 'play' && data.tracks && data.tracks.length > 0) {
         playTrack(data.tracks[0]);
+        if (data.tracks.length > 1) {
+          addMultipleToQueue(data.tracks.slice(1));
+          setQueueNotice(`▶ Playing now + added ${data.tracks.length - 1} more track${data.tracks.length > 2 ? 's' : ''} to queue!`);
+          setTimeout(() => setQueueNotice(null), 4000);
+        }
       }
     } catch (err) {
       console.error('Chat error:', err);
@@ -139,10 +153,12 @@ export default function BeatzChatDrawer({ isOpen, onClose }: BeatzChatDrawerProp
 
   const handleQueueAll = (tracks?: SpotifyTrack[]) => {
     if (!tracks || tracks.length === 0) return;
+    addMultipleToQueue(tracks);
     tracks.forEach((track) => {
-      addToQueue(track);
       setAddedTrackIds((prev) => ({ ...prev, [track.id]: true }));
     });
+    setQueueNotice(`⚡ Added all ${tracks.length} tracks to queue!`);
+    setTimeout(() => setQueueNotice(null), 3000);
   };
 
   if (!isOpen) return null;
@@ -179,6 +195,19 @@ export default function BeatzChatDrawer({ isOpen, onClose }: BeatzChatDrawerProp
               <X className="h-5 w-5" />
             </button>
           </div>
+
+          {/* Real-time Queue Notification Banner */}
+          {queueNotice && (
+            <div className="bg-spotify-green text-black text-xs font-semibold px-4 py-2 flex items-center justify-between animate-fadeIn transition shadow-md">
+              <span>{queueNotice}</span>
+              <button
+                onClick={() => setQueueNotice(null)}
+                className="text-black/70 hover:text-black font-bold text-sm"
+              >
+                ×
+              </button>
+            </div>
+          )}
 
           {/* Quick Prompt Chips */}
           <div className="px-4 py-2.5 bg-spotify-elevated/40 border-b border-spotify-border/60 overflow-x-auto flex items-center gap-2 no-scrollbar">

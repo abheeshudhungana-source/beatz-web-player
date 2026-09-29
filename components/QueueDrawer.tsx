@@ -26,6 +26,7 @@ export function QueueDrawer(props: QueueDrawerProps = {}) {
   const storeQueue = useBeatzStore((state) => state.queue);
   const playTrack = useBeatzStore((state) => state.playTrack);
   const removeFromQueue = useBeatzStore((state) => state.removeFromQueue);
+  const clearQueue = useBeatzStore((state) => state.clearQueue);
   const currentTrack = useBeatzStore((state) => state.currentTrack);
 
   const isOpen = props.isOpen !== undefined ? props.isOpen : storeIsOpen;
@@ -112,6 +113,16 @@ export function QueueDrawer(props: QueueDrawerProps = {}) {
               <p className="text-xs font-semibold uppercase tracking-wider text-spotify-subtext">
                 Upcoming ({storeQueue.upcomingTracks.length})
               </p>
+              {storeQueue.upcomingTracks.length > 0 && (
+                <button
+                  onClick={clearQueue}
+                  className="flex items-center gap-1 text-[11px] text-zinc-400 hover:text-red-400 transition"
+                  title="Clear all upcoming tracks"
+                >
+                  <Trash2 className="h-3 w-3" />
+                  <span>Clear</span>
+                </button>
+              )}
             </div>
 
             {storeQueue.upcomingTracks.length === 0 ? (

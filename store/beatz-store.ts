@@ -51,7 +51,10 @@ interface BeatzStore {
   setCurrentTrack: (track: SpotifyTrack | null) => void;
   setQueue: (tracks: SpotifyTrack[] | QueueState) => void;
   addToQueue: (track: SpotifyTrack) => void;
+  addMultipleToQueue: (tracks: SpotifyTrack[]) => void;
   removeFromQueue: (trackId: string) => void;
+  clearQueue: () => void;
+  clearAndReplaceQueue: (tracks: SpotifyTrack[]) => void;
   playTrack: (track: SpotifyTrack) => void;
   togglePlay: () => void;
   nextTrack: () => void;
@@ -90,7 +93,24 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
   setSdkActive: (active) => set({ isSdkActive: active }),
   setIsPremium: (isPremium) => set({ isPremium }),
   setSdkError: (error) => set({ sdkError: error }),
-  syncSdkState: (stateUpdate) => set((prev) => ({ ...prev, ...stateUpdate })),
+  syncSdkState: (stateUpdate) => {
+    set((prev) => {
+      const nextState = { ...prev, ...stateUpdate };
+      // If currentTrack is updated via SDK and differs from queue.currentlyPlaying
+      if (stateUpdate.currentTrack && stateUpdate.currentTrack.id !== prev.queue.currentlyPlaying?.id) {
+        const upcoming = prev.queue.upcomingTracks;
+        const matchIndex = upcoming.findIndex((t) => t.id === stateUpdate.currentTrack?.id);
+        const newUpcoming = matchIndex !== -1 ? upcoming.slice(matchIndex + 1) : upcoming;
+
+        nextState.queue = {
+          ...prev.queue,
+          currentlyPlaying: stateUpdate.currentTrack,
+          upcomingTracks: newUpcoming,
+        };
+      }
+      return nextState;
+    });
+  },
 
   setCurrentTrack: (track) =>
     set({
@@ -129,6 +149,14 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
       },
     })),
 
+  addMultipleToQueue: (tracks) =>
+    set((state) => ({
+      queue: {
+        ...state.queue,
+        upcomingTracks: [...state.queue.upcomingTracks, ...tracks],
+      },
+    })),
+
   removeFromQueue: (trackId) =>
     set((state) => ({
       queue: {
@@ -137,8 +165,80 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
       },
     })),
 
+  clearQueue: () =>
+    set((state) => ({
+      queue: {
+        ...state.queue,
+        upcomingTracks: [],
+      },
+    })),
+
+  clearAndReplaceQueue: (tracks) => {
+    if (tracks.length === 0) {
+      set((state) => ({
+        queue: {
+          ...state.queue,
+          upcomingTracks: [],
+        },
+      }));
+      return;
+    }
+    const [first, ...rest] = tracks;
+    set((state) => ({
+      queue: {
+        ...state.queue,
+        currentlyPlaying: first,
+        upcomingTracks: rest,
+      },
+    }));
+    get().playTrack(first);
+  },
+
   playTrack: (track) => {
-    const { isSdkActive, sdkDeviceId } = get();
+    const { isSdkActive, sdkDeviceId, queue } = get();
+
+    // Reconcile queue: prune track (and preceding items) from upcoming list
+    const upcoming = queue.upcomingTracks;
+    const trackIndex = upcoming.findIndex((t) => t.id === track.id);
+    const newUpcoming = trackIndex !== -1 ? upcoming.slice(trackIndex + 1) : upcoming;
+
+    set({
+      currentTrack: track,
+      queue: {
+        ...queue,
+        currentlyPlaying: track,
+        upcomingTracks: newUpcoming,
+        isLoading: false,
+        error: null,
+      },
+      durationMs: track.durationMs,
+      progressMs: 0,
+      isPlaying: true,
+    });
+
+    const playFallbackAudio = () => {
+      if (typeof window !== 'undefined') {
+        try {
+          if (previewAudio) {
+            previewAudio.pause();
+            previewAudio.src = '';
+          }
+          const audioUrl = getPreviewAudioUrl(track);
+          previewAudio = new Audio(audioUrl);
+          previewAudio.volume = get().volume;
+          previewAudio.onended = () => {
+            get().nextTrack();
+          };
+
+          const playPromise = previewAudio.play();
+          if (playPromise !== undefined) {
+            playPromise.catch((e) => console.warn('Audio play blocked / user gesture needed:', e));
+          }
+        } catch (err) {
+          console.warn('Audio play error:', err);
+        }
+      }
+    };
 
     // 1. If Spotify Web Playback SDK is connected and active:
     if (isSdkActive && sdkDeviceId) {
@@ -147,14 +247,6 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
         previewAudio.src = '';
       }
 
-      set({
-        currentTrack: track,
-        durationMs: track.durationMs,
-        progressMs: 0,
-        isPlaying: true,
-      });
-
-      // Target playback specifically to the in-browser Web Playback SDK device
       fetch('/api/spotify/player', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -163,46 +255,22 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
           uri: track.uri,
           deviceId: sdkDeviceId,
         }),
-      }).catch((err) => console.warn('Failed to stream via Spotify SDK:', err));
+      })
+        .then((res) => {
+          if (!res.ok) {
+            console.warn('[Spotify SDK] Play request non-OK status (' + res.status + '). Falling back to preview audio.');
+            playFallbackAudio();
+          }
+        })
+        .catch((err) => {
+          console.warn('[Spotify SDK] Network error streaming via Spotify SDK:', err);
+          playFallbackAudio();
+        });
       return;
     }
 
-    // 2. Fallback: In-browser audio preview engine
-    if (typeof window !== 'undefined') {
-      try {
-        if (previewAudio) {
-          previewAudio.pause();
-          previewAudio.src = '';
-        }
-        const audioUrl = getPreviewAudioUrl(track);
-        previewAudio = new Audio(audioUrl);
-        previewAudio.volume = get().volume;
-        previewAudio.onended = () => {
-          get().nextTrack();
-        };
-
-        const playPromise = previewAudio.play();
-        if (playPromise !== undefined) {
-          playPromise.catch((e) => console.warn('Audio play blocked / user gesture needed:', e));
-        }
-      } catch (err) {
-        console.warn('Audio play error:', err);
-      }
-
-      // Also notify any external active Spotify session
-      fetch('/api/spotify/player', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'play', uri: track.uri }),
-      }).catch(() => {});
-    }
-
-    set({
-      currentTrack: track,
-      durationMs: track.durationMs,
-      progressMs: 0,
-      isPlaying: true,
-    });
+    // 2. Direct fallback: In-browser audio preview engine
+    playFallbackAudio();
   },
 
   togglePlay: () => {
@@ -265,23 +333,33 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
     const queue = state.queue.upcomingTracks;
 
     if (queue.length === 0) {
-      // If queue is empty, cycle to the next song in catalog so playback continues seamlessly
-      const allTracks = MOCK_TRACKS;
-      const currentIndex = allTracks.findIndex((t) => t.id === state.currentTrack?.id);
-      const nextIndex = (currentIndex + 1) % allTracks.length;
-      get().playTrack(allTracks[nextIndex]);
-    } else {
-      const [next, ...rest] = queue;
+      // Clean end of queue: gracefully pause rather than endlessly cycling unrequested mock songs
+      if (previewAudio) {
+        previewAudio.pause();
+        previewAudio.src = '';
+      }
       set({
-        queue: {
-          currentlyPlaying: next,
-          upcomingTracks: rest.length > 0 ? rest : MOCK_TRACKS.filter((t) => t.id !== next.id),
-          isLoading: false,
-          error: null,
-        },
+        isPlaying: false,
+        progressMs: 0,
       });
-      get().playTrack(next);
+      return;
     }
+
+    const [next, ...rest] = queue;
+    set({
+      queue: {
+        ...state.queue,
+        currentlyPlaying: next,
+        upcomingTracks: rest,
+        isLoading: false,
+        error: null,
+      },
+      currentTrack: next,
+      durationMs: next.durationMs,
+      progressMs: 0,
+      isPlaying: true,
+    });
+    get().playTrack(next);
   },
 
   previousTrack: () => {
@@ -291,10 +369,10 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
       return;
     }
 
-    const allTracks = MOCK_TRACKS;
-    const currentIndex = allTracks.findIndex((t) => t.id === state.currentTrack?.id);
-    const prevIndex = (currentIndex - 1 + allTracks.length) % allTracks.length;
-    get().playTrack(allTracks[prevIndex]);
+    get().seekTo(0);
+    if (state.currentTrack) {
+      get().playTrack(state.currentTrack);
+    }
   },
 
   setVolume: (value) => {
