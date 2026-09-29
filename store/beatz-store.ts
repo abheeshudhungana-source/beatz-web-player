@@ -264,6 +264,12 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
         .then((res) => {
           if (!res.ok) {
             console.warn('[Spotify SDK] Play request non-OK status (' + res.status + '). Falling back to preview audio.');
+            // 403 = Premium required — deactivate SDK so banner shows and future plays go to preview
+            if (res.status === 403 || res.status === 401) {
+              get().setSdkActive(false);
+              get().setIsPremium(false);
+              get().setSdkError('premium_required');
+            }
             playFallbackAudio();
           }
         })

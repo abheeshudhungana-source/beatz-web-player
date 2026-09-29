@@ -48,6 +48,16 @@ export async function POST(request: NextRequest) {
         },
         accessToken
       );
+
+      // Propagate real HTTP status for 403 (Premium required) and 401 (unauthorized)
+      // so the client's res.ok check correctly triggers HTML5 preview fallback
+      if (res.status === 403 || res.status === 401) {
+        return NextResponse.json(
+          { success: false, status: res.status, error: res.error },
+          { status: res.status }
+        );
+      }
+
       return NextResponse.json({
         success: res.status === 204 || res.status === 200,
         status: res.status,
