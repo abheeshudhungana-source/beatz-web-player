@@ -36,6 +36,7 @@ interface BeatzStore {
   isSdkActive: boolean;
   isPremium: boolean;
   sdkError: string | null;
+  isSeeking: boolean; // true for ~1s after a seek — blocks poll from overwriting progressMs
 
   setSdkDeviceId: (deviceId: string | null) => void;
   setSdkActive: (active: boolean) => void;
@@ -91,6 +92,7 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
   isSdkActive: false,
   isPremium: false,
   sdkError: null,
+  isSeeking: false,
 
   setSdkDeviceId: (deviceId) => set({ sdkDeviceId: deviceId }),
   setSdkActive: (active) => set({ isSdkActive: active }),
@@ -98,7 +100,12 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
   setSdkError: (error) => set({ sdkError: error }),
   syncSdkState: (stateUpdate) => {
     set((prev) => {
-      const nextState = { ...prev, ...stateUpdate };
+      // If a seek is in progress, block poll from overwriting the optimistic progressMs
+      const filteredUpdate = prev.isSeeking && 'progressMs' in stateUpdate && !stateUpdate.currentTrack
+        ? { ...stateUpdate, progressMs: prev.progressMs }
+        : stateUpdate;
+
+      const nextState = { ...prev, ...filteredUpdate };
       // If currentTrack is updated via SDK and differs from queue.currentlyPlaying
       if (stateUpdate.currentTrack && stateUpdate.currentTrack.id !== prev.queue.currentlyPlaying?.id) {
         const upcoming = prev.queue.upcomingTracks;
@@ -412,6 +419,12 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
     const clamped = clamp(value, 0, get().durationMs || 0);
     const { isSdkActive, sdkDeviceId } = get();
 
+    // Optimistically update UI position immediately
+    set({ progressMs: clamped, isSeeking: true });
+
+    // Clear isSeeking after 1.2s — long enough for SDK seek to confirm via poll
+    setTimeout(() => set({ isSeeking: false }), 1200);
+
     if (isSdkActive && sdkDeviceId) {
       fetch('/api/spotify/player', {
         method: 'POST',
@@ -422,12 +435,12 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
           deviceId: sdkDeviceId,
         }),
       }).catch(() => {});
-    } else if (previewAudio && previewAudio.duration && !isNaN(previewAudio.duration)) {
-      const audioPercent = clamped / (get().durationMs || 1);
-      previewAudio.currentTime = audioPercent * previewAudio.duration;
+    } else if (previewAudio && previewAudio.readyState >= 1) {
+      // Preview audio: map clamped ms to actual audio duration in seconds
+      const audioDurationMs = previewAudio.duration * 1000;
+      const ratio = audioDurationMs > 0 ? clamped / audioDurationMs : 0;
+      previewAudio.currentTime = ratio * previewAudio.duration;
     }
-
-    set({ progressMs: clamped });
   },
 
   tickPlayer: () =>
