@@ -447,14 +447,13 @@ export default function Home() {
         {/* Main Content Area */}
         <main ref={mainContentRef} className="min-w-0 flex-1 overflow-y-auto">
           <div className="sticky top-0 z-20 border-b border-spotify-border bg-spotify-dark/95 px-6 py-3 backdrop-blur lg:px-8">
-            {!adState.isAdPlaying && (
-              <button
-                onClick={() => triggerAdBreak()}
-                className="rounded-full border border-spotify-border bg-spotify-surface px-3 py-2 text-xs font-semibold text-zinc-300 transition hover:border-spotify-green/50 hover:text-spotify-green"
-              >
-                Dev: Ad pacing
-              </button>
-            )}
+            <button
+              onClick={() => triggerAdBreak()}
+              disabled={adState.isAdPlaying}
+              className="rounded-full border border-spotify-border bg-spotify-surface px-3 py-2 text-xs font-semibold text-zinc-300 transition hover:border-spotify-green/50 hover:text-spotify-green disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Dev: Ad pacing
+            </button>
           </div>
 
           <div className="space-y-10 p-6 lg:space-y-12 lg:p-8">
@@ -629,67 +628,6 @@ export default function Home() {
             ))}
           </div>
         </section>
-
-        <div className="grid grid-cols-1 gap-6">
-          <section className="rounded-3xl border border-spotify-border bg-spotify-surface p-6 shadow-xl shadow-black/20">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-spotify-subtext font-semibold">
-                <Sparkles className="h-3.5 w-3.5 text-spotify-green" />
-                Queue Overview
-              </div>
-            </div>
-
-            <div className="mt-6 space-y-4">
-              <div className="rounded-2xl border border-spotify-border bg-spotify-elevated/50 p-4">
-                <p className="text-[11px] uppercase tracking-[0.25em] text-spotify-green font-semibold">Now Playing</p>
-                <div className="mt-3 flex items-center gap-4">
-                  <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-xl bg-spotify-elevated border border-white/10 shadow-sm shadow-black/20">
-                    {currentTrack?.album?.images?.[0]?.url ? (
-                      <img src={currentTrack.album.images[0].url} alt={currentTrack.name} className="h-full w-full object-cover" />
-                    ) : (
-                      <Music className="h-7 w-7 text-spotify-green" />
-                    )}
-                  </div>
-                  <div className="min-w-0">
-                    <h2 className="truncate text-xl font-black tracking-tight text-white">{nowPlaying.title}</h2>
-                    <p className="mt-0.5 truncate text-sm text-spotify-subtext">{nowPlaying.artist}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-spotify-border bg-spotify-elevated/40 p-3">
-                <div className="mb-3 flex items-center justify-between">
-                  <p className="text-[11px] uppercase tracking-[0.22em] text-spotify-subtext font-semibold">Up Next</p>
-                  <span className="text-[10px] text-zinc-400 font-mono">{queue.upcomingTracks.length} tracks</span>
-                </div>
-
-                {queue.upcomingTracks.length > 0 ? (
-                  <div className="space-y-2">
-                    {queue.upcomingTracks.slice(0, 5).map((track, index) => (
-                      <button
-                        key={`${track.id}-${index}`}
-                        onClick={() => playTrack(track)}
-                        className="flex w-full items-center gap-3 rounded-xl border border-transparent bg-transparent px-2 py-1.5 text-left transition hover:border-spotify-green/30 hover:bg-spotify-elevated/60"
-                      >
-                        <span className="w-4 text-center font-mono text-[10px] text-zinc-500">{index + 1}</span>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-xs font-medium text-white">{track.name}</p>
-                          <p className="truncate text-[10px] text-spotify-subtext">
-                            {track.artists.map((artist) => artist.name).join(', ')}
-                          </p>
-                        </div>
-                        <span className="font-mono text-[10px] text-zinc-500">{formatDuration(track.durationMs)}</span>
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-zinc-500">No tracks queued yet. Search for something to play next.</p>
-                )}
-              </div>
-            </div>
-          </section>
-
-        </div>
 
           </div>
         </main>
