@@ -264,13 +264,12 @@ ${sanitizedInput}
       },
     };
 
-    // Call Gemini 1.5 Flash - Support both Google AI Studio API Keys (AIzaSy...) and Vertex AI OAuth tokens (AQ...)
-    const isBearerToken = GEMINI_API_KEY.startsWith('AQ.') || GEMINI_API_KEY.startsWith('ya29.');
-    const fetchUrl = isBearerToken ? GEMINI_ENDPOINT : `${GEMINI_ENDPOINT}?key=${GEMINI_API_KEY}`;
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (isBearerToken) {
-      headers['Authorization'] = `Bearer ${GEMINI_API_KEY}`;
-    }
+    // Call Gemini 1.5 Flash - Support new Google AQ.Ab format & legacy AIza format
+    const fetchUrl = `${GEMINI_ENDPOINT}?key=${GEMINI_API_KEY}`;
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'x-goog-api-key': GEMINI_API_KEY,
+    };
 
     const geminiRes = await fetch(fetchUrl, {
       method: 'POST',
@@ -279,7 +278,8 @@ ${sanitizedInput}
     });
 
     if (!geminiRes.ok) {
-      console.warn(`[Gemini API] Returned status ${geminiRes.status}. Using resilient fallback.`);
+      const errText = await geminiRes.text().catch(() => '');
+      console.warn(`[Gemini API] Returned status ${geminiRes.status}: ${errText.slice(0, 300)}. Using resilient fallback.`);
       const fallbackResult = await fallbackHeuristicCurator(sanitizedInput, currentTrack, accessToken, lastArtist, lastQuery);
       return NextResponse.json(fallbackResult);
     }
