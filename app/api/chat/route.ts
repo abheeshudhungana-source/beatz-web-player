@@ -103,15 +103,24 @@ async function fallbackHeuristicCurator(
     searchQuery = 'Classic Alternative Rock';
     rationale = "🎸 Riff-heavy selections packed with raw guitars and driving rhythm sections.";
   } else {
-    // Clean common command phrases to extract pure music query
-    const cleanedQuery = sanitizedInput
-      .replace(/^(reccommend|recommend|suggest|give me|find me|play me|play|queue)\s+(a|an|some)?\s*/i, '')
-      .replace(/^(upbeat|chill|sad|happy|fast|slow)\s+song(s)?\s+(by|from)\s+/i, '$3 ')
-      .replace(/^(song|tracks|music)\s+(by|from)\s+/i, '')
-      .trim();
+    // Extract specific artist if pattern like "by <artist>" exists
+    const byMatch = sanitizedInput.match(/(?:by|from)\s+([a-zA-Z0-9\s]+?)(?:\s+please|\s+for me|[.!?]|$)/i);
+    if (byMatch && byMatch[1] && byMatch[1].trim().length > 1) {
+      searchQuery = byMatch[1].trim();
+      rationale = `Found top tracks by ${searchQuery}!`;
+    } else {
+      // Clean common command phrases to extract pure music query
+      const cleanedQuery = sanitizedInput
+        .replace(/^(reccommend|recommend|suggest|give me|find me|play me|play|queue)\s+(me\s+)?(a|an|some)?\s*/i, '')
+        .replace(/\b(upbeat|chill|sad|happy|fast|slow|energy)\b/gi, '')
+        .replace(/\b(song|songs|tracks|track|music)\b/gi, '')
+        .replace(/\b(by|from|of)\b/gi, '')
+        .replace(/\s+/g, ' ')
+        .trim();
 
-    searchQuery = cleanedQuery.length > 2 ? cleanedQuery.slice(0, 60) : sanitizedInput.slice(0, 40);
-    rationale = `Found great matching tracks for "${searchQuery}"!`;
+      searchQuery = cleanedQuery.length > 2 ? cleanedQuery.slice(0, 60) : sanitizedInput.slice(0, 40);
+      rationale = `Found great matching tracks for "${searchQuery}"!`;
+    }
   }
 
   try {
