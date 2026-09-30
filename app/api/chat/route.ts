@@ -87,20 +87,30 @@ async function fallbackHeuristicCurator(
   let searchQuery = 'Top Hits 2026';
   let rationale = "Here are top-charting selections to match your vibe!";
 
-  if (lower.includes('energy') || lower.includes('workout') || lower.includes('upbeat') || lower.includes('gym')) {
+  // Check if user specifically requested an artist or song using words like "by", "from", "of"
+  const hasSpecificSubject = lower.includes(' by ') || lower.includes(' from ') || lower.includes(' of ') || lower.includes('song') || lower.includes('track');
+
+  if (!hasSpecificSubject && (lower.includes('energy') || lower.includes('workout') || lower.includes('upbeat') || lower.includes('gym'))) {
     searchQuery = 'Synthwave Electronic Upbeat';
     rationale = "⚡ Cranked up the tempo! Here are high-energy tracks engineered to get your adrenaline flowing.";
-  } else if (lower.includes('focus') || lower.includes('study') || lower.includes('coding') || lower.includes('work')) {
+  } else if (!hasSpecificSubject && (lower.includes('focus') || lower.includes('study') || lower.includes('coding') || lower.includes('work'))) {
     searchQuery = 'Lofi Beats Instrumental Study';
     rationale = "🧠 Dialing in deep focus with steady, lyric-free beats designed for flow-state concentration.";
-  } else if (lower.includes('chill') || lower.includes('relax') || lower.includes('late night') || lower.includes('sleep')) {
+  } else if (!hasSpecificSubject && (lower.includes('chill') || lower.includes('relax') || lower.includes('late night') || lower.includes('sleep'))) {
     searchQuery = 'Ambient Chill Downtempo';
     rationale = "🌙 Smooth, mellow textures to help you unwind and sink into the evening.";
-  } else if (lower.includes('rock') || lower.includes('guitar')) {
+  } else if (!hasSpecificSubject && (lower.includes('rock') || lower.includes('guitar'))) {
     searchQuery = 'Classic Alternative Rock';
     rationale = "🎸 Riff-heavy selections packed with raw guitars and driving rhythm sections.";
   } else {
-    searchQuery = sanitizedInput.slice(0, 40);
+    // Clean common command phrases to extract pure music query
+    const cleanedQuery = sanitizedInput
+      .replace(/^(reccommend|recommend|suggest|give me|find me|play me|play|queue)\s+(a|an|some)?\s*/i, '')
+      .replace(/^(upbeat|chill|sad|happy|fast|slow)\s+song(s)?\s+(by|from)\s+/i, '$3 ')
+      .replace(/^(song|tracks|music)\s+(by|from)\s+/i, '')
+      .trim();
+
+    searchQuery = cleanedQuery.length > 2 ? cleanedQuery.slice(0, 60) : sanitizedInput.slice(0, 40);
     rationale = `Found great matching tracks for "${searchQuery}"!`;
   }
 
