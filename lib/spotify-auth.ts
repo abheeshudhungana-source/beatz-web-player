@@ -133,3 +133,48 @@ export async function refreshAccessToken(refreshToken: string) {
 
   return response.json();
 }
+
+/**
+ * Reads the current access token from cookies and proactively refreshes it if expired.
+ */
+export async function getValidAccessToken(): Promise<string | null> {
+  try {
+    const { cookies } = await import('next/headers');
+    const cookieStore = cookies();
+    let accessToken = cookieStore.get('spotify_access_token')?.value;
+    const refreshToken = cookieStore.get('spotify_refresh_token')?.value;
+    const expiresAtStr = cookieStore.get('spotify_token_expires_at')?.value;
+
+    const expiresAt = expiresAtStr ? parseInt(expiresAtStr, 10) : 0;
+    const isExpired = !accessToken || (expiresAt > 0 && Date.now() > expiresAt - 60 * 1000);
+
+    if (isExpired && refreshToken) {
+      const refreshed = await refreshAccessToken(refreshToken);
+      if (refreshed.access_token) {
+        accessToken = refreshed.access_token;
+        const newExpiresAt = Date.now() + refreshed.expires_in * 1000;
+
+        cookieStore.set('spotify_access_token', accessToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          maxAge: refreshed.expires_in,
+          path: '/',
+        });
+
+        cookieStore.set('spotify_token_expires_at', newExpiresAt.toString(), {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          maxAge: refreshed.expires_in,
+          path: '/',
+        });
+      }
+    }
+
+    return accessToken || null;
+  } catch (err) {
+    console.error('[getValidAccessToken] Error obtaining fresh token:', err);
+    return null;
+  }
+}

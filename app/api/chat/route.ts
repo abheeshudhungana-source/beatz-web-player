@@ -231,9 +231,9 @@ export async function POST(request: NextRequest) {
       .replace(/[<>]/g, '')
       .trim();
 
-    // Read Spotify access token from secure HTTP-only cookie
-    const cookieStore = cookies();
-    const accessToken = cookieStore.get('spotify_access_token')?.value || null;
+    // Read Spotify access token from secure HTTP-only cookie with proactive refresh
+    const { getValidAccessToken } = await import('@/lib/spotify-auth');
+    const accessToken = await getValidAccessToken();
 
     // If no Gemini key is provided, gracefully use the heuristic curator
     if (!GEMINI_API_KEY || GEMINI_API_KEY === 'your_gemini_api_key_here') {

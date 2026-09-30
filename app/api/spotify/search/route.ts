@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import { searchTracks } from '@/lib/spotify';
+import { getValidAccessToken } from '@/lib/spotify-auth';
 
 export async function GET(request: NextRequest) {
   try {
@@ -20,8 +20,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const cookieStore = cookies();
-    const accessToken = cookieStore.get('spotify_access_token')?.value || null;
+    const accessToken = await getValidAccessToken();
 
     const tracks = await searchTracks(query, accessToken, limit);
     return NextResponse.json({ tracks });
