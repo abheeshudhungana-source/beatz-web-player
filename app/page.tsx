@@ -403,15 +403,15 @@ export default function Home() {
       </header>
 
       <div className="flex min-h-0 flex-1">
-        <aside className="w-16 shrink-0 border-r border-spotify-border bg-[#101010] px-2 py-6 md:w-56 md:px-4" aria-label="Primary navigation">
-          <nav className="flex flex-col gap-2">
+        <aside className="relative z-20 flex h-full w-16 shrink-0 border-r border-spotify-border bg-[#101010] px-2" aria-label="Primary navigation">
+          <nav className="flex h-full w-full flex-col justify-center gap-3">
             <button
               type="button"
               onClick={() => {
                 setActiveNav('home');
                 mainContentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
               }}
-              className={`group flex w-full items-center justify-center gap-3 rounded-xl px-3 py-3.5 text-sm font-medium transition md:justify-start md:px-4 ${
+              className={`group relative flex h-12 w-full items-center justify-center rounded-xl text-sm font-medium transition ${
                 activeNav === 'home'
                   ? 'bg-spotify-elevated text-white'
                   : 'text-zinc-400 hover:bg-spotify-elevated/70 hover:text-white'
@@ -420,7 +420,7 @@ export default function Home() {
               aria-label="Home"
             >
               <House className={`h-5 w-5 shrink-0 ${activeNav === 'home' ? 'text-spotify-green' : 'group-hover:text-spotify-green'}`} />
-              <span className="hidden md:inline">Home</span>
+              <span className="pointer-events-none absolute left-full z-30 ml-3 translate-x-1 whitespace-nowrap rounded-md border border-spotify-border bg-spotify-elevated px-3 py-2 text-xs text-white opacity-0 shadow-lg transition-all duration-200 group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100">Home</span>
             </button>
             <button
               type="button"
@@ -429,7 +429,7 @@ export default function Home() {
                 searchSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 searchInputRef.current?.focus({ preventScroll: true });
               }}
-              className={`group flex w-full items-center justify-center gap-3 rounded-xl px-3 py-3.5 text-sm font-medium transition md:justify-start md:px-4 ${
+              className={`group relative flex h-12 w-full items-center justify-center rounded-xl text-sm font-medium transition ${
                 activeNav === 'search'
                   ? 'bg-spotify-elevated text-white'
                   : 'text-zinc-400 hover:bg-spotify-elevated/70 hover:text-white'
@@ -438,7 +438,7 @@ export default function Home() {
               aria-label="Search"
             >
               <Search className={`h-5 w-5 shrink-0 ${activeNav === 'search' ? 'text-spotify-green' : 'group-hover:text-spotify-green'}`} />
-              <span className="hidden md:inline">Search</span>
+              <span className="pointer-events-none absolute left-full z-30 ml-3 translate-x-1 whitespace-nowrap rounded-md border border-spotify-border bg-spotify-elevated px-3 py-2 text-xs text-white opacity-0 shadow-lg transition-all duration-200 group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100">Search</span>
             </button>
           </nav>
         </aside>
