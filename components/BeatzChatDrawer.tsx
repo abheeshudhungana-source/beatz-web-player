@@ -338,6 +338,9 @@ export default function BeatzChatDrawer({ isOpen, onClose }: BeatzChatDrawerProp
                           </div>
                         );
                       })}
+                    </div>
+                  )}
+
                   {/* Render Follow-up Option Chips */}
                   {msg.sender === 'ai' && msg.followUpOptions && msg.followUpOptions.length > 0 && (
                     <div className="pt-2 space-y-1.5">

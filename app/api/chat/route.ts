@@ -107,13 +107,12 @@ async function fallbackHeuristicCurator(
   } else {
     // Extract specific artist if pattern like "by <artist>" exists
     const byMatch = sanitizedInput.match(/(?:by|from)\s+([a-zA-Z0-9\s]+?)(?:\s+please|\s+for me|[.!?]|$)/i);
+    const isFollowUp = /^(more|more\?|more please|more of this|another|give me more|show more)\b/i.test(sanitizedInput.trim());
+
     if (byMatch && byMatch[1] && byMatch[1].trim().length > 1) {
       searchQuery = byMatch[1].trim();
       rationale = `Found top tracks by ${searchQuery}!`;
-    // Check if user is asking for "more" or follow-up
-    const isFollowUp = /^(more|more\?|more please|more of this|another|give me more|show more)\b/i.test(sanitizedInput.trim());
-
-    if (isFollowUp && (lastArtist || lastQuery)) {
+    } else if (isFollowUp && (lastArtist || lastQuery)) {
       searchQuery = lastArtist || lastQuery || 'Top Hits';
       rationale = `Here are more great tracks from ${searchQuery}!`;
     } else {
