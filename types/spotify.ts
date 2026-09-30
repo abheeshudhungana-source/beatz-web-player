@@ -8,6 +8,7 @@ export interface SpotifyArtist {
   id: string;
   name: string;
   uri: string;
+  images?: SpotifyImage[];
 }
 
 export interface SpotifyAlbum {

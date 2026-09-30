@@ -224,6 +224,7 @@ export function mapSpotifyTrackDto(rawTrack: any): SpotifyTrack {
       id: artist.id || 'unknown-artist',
       name: artist.name || 'Unknown Artist',
       uri: artist.uri || `spotify:artist:${artist.id || 'unknown'}`,
+      images: Array.isArray(artist.images) ? artist.images : [],
     })),
     album: {
       id: rawTrack.album?.id || '',

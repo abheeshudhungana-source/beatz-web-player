@@ -46,6 +46,38 @@ interface LyricLine {
   startMs: number;
 }
 
+const CURATED_PLAYLISTS = [
+  'After Hours Drive',
+  'Dreamwave',
+  'Dance Floor Essentials',
+  'Acoustic Weekend',
+  'Fresh Finds',
+  'Focus Mode',
+  'Bright Side',
+  'Soft Landing',
+  'On Repeat',
+  'Daily Blend',
+];
+
+function ArtworkImage({ src, alt, className }: { src?: string; alt: string; className: string }) {
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+
+  if (!src || failedUrl === src) {
+    return (
+      <span
+        className={`flex shrink-0 items-center justify-center bg-[#242424] text-zinc-500 ${className}`}
+        role={alt ? 'img' : undefined}
+        aria-label={alt || undefined}
+        aria-hidden={alt ? undefined : true}
+      >
+        <Music className="h-6 w-6" />
+      </span>
+    );
+  }
+
+  return <img src={src} alt={alt} className={className} onError={() => setFailedUrl(src)} />;
+}
+
 function parseSyncedLyrics(syncedLyrics: string): LyricLine[] {
   const lyricLines: LyricLine[] = [];
 
@@ -185,11 +217,15 @@ export default function Home() {
   }, [currentTrack, queue.currentlyPlaying, queue.upcomingTracks]);
   const topArtists = useMemo(() => {
     const seenArtistIds = new Set<string>();
-    return MOCK_TRACKS.flatMap((track) => track.artists.map((artist) => ({ artist, track }))).filter(({ artist }) => {
+    const uniqueArtists = MOCK_TRACKS.flatMap((track) => track.artists.map((artist) => ({ artist, track }))).filter(({ artist }) => {
       if (seenArtistIds.has(artist.id)) return false;
       seenArtistIds.add(artist.id);
       return true;
     });
+    return Array.from({ length: 10 }, (_, index) => ({
+      ...uniqueArtists[index % uniqueArtists.length],
+      cardId: `${uniqueArtists[index % uniqueArtists.length].artist.id}-${index}`,
+    }));
   }, []);
 
   const lyricTrackId = currentTrack?.id;
@@ -490,7 +526,7 @@ export default function Home() {
             <h1 className="mt-1 text-3xl font-bold tracking-tight text-white md:text-4xl">Good afternoon</h1>
           </div>
           <h2 className="pt-1 text-xl font-bold text-white">Jump Back In</h2>
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,250px),1fr))] gap-3">
             {jumpBackTracks.map((track) => (
               <button
                 key={track.id}
@@ -498,11 +534,7 @@ export default function Home() {
                 onClick={() => playTrack(track)}
                 className="group flex min-w-0 items-center gap-3 overflow-hidden rounded-lg bg-spotify-elevated/65 text-left transition hover:bg-[#303030]"
               >
-                {track.album?.images?.[0]?.url ? (
-                  <img src={track.album.images[0].url} alt="" className="h-14 w-14 shrink-0 object-cover" />
-                ) : (
-                  <div className="flex h-14 w-14 shrink-0 items-center justify-center bg-spotify-elevated text-spotify-green"><Music className="h-5 w-5" /></div>
-                )}
+                <ArtworkImage src={track.album?.images?.[0]?.url} alt="" className="h-14 w-14 object-cover" />
                 <span className="min-w-0 flex-1 py-2 pr-3">
                   <span className="block truncate text-xs font-semibold text-white group-hover:text-spotify-green">{track.name}</span>
                   <span className="mt-1 block truncate text-[10px] text-spotify-subtext">{track.artists.map((artist) => artist.name).join(', ')}</span>
@@ -528,7 +560,7 @@ export default function Home() {
                 >
                   <div className="flex min-w-0 flex-1 items-center gap-3">
                     <div className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-spotify-green/15 text-spotify-green">
-                      {track.album?.images?.[0]?.url ? <img src={track.album.images[0].url} alt={track.name} className="h-full w-full object-cover" /> : <Music className="h-5 w-5" />}
+                      <ArtworkImage src={track.album?.images?.[0]?.url} alt={track.name} className="h-full w-full object-cover" />
                       <button
                         type="button"
                         onClick={(event) => {
@@ -578,50 +610,44 @@ export default function Home() {
         <section className="space-y-4">
           <h2 className="text-xl font-bold text-white">Made For You</h2>
           <div className="no-scrollbar flex gap-5 overflow-x-auto scroll-smooth pb-2">
-            {[
-              { title: 'After Hours Drive', description: 'Neon-lit pop for the long way home', track: MOCK_TRACKS[1] },
-              { title: 'Dreamwave', description: 'Wide-open sounds and midnight skies', track: MOCK_TRACKS[2] },
-              { title: 'Dance Floor Essentials', description: 'Big hooks, brighter nights', track: MOCK_TRACKS[3] },
-              { title: 'Acoustic Weekend', description: 'Familiar songs for a slower day', track: MOCK_TRACKS[4] },
-            ].map((playlist) => (
+            {CURATED_PLAYLISTS.map((title, index) => {
+              const track = MOCK_TRACKS[index % MOCK_TRACKS.length];
+              return (
               <button
-                key={playlist.title}
+                key={title}
                 type="button"
-                onClick={() => playTrack(playlist.track)}
+                onClick={() => playTrack(track)}
                 className="group w-40 shrink-0 text-left sm:w-48"
-                aria-label={`Play ${playlist.title}`}
+                aria-label={`Play ${title}`}
               >
                 <div className="relative aspect-square overflow-hidden rounded-lg bg-spotify-elevated">
-                  <img src={playlist.track.album.images[0]?.url} alt="" className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
+                  <ArtworkImage src={track.album?.images?.[0]?.url} alt="" className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
                   <div className="absolute inset-0 bg-black/0 transition group-hover:bg-black/20" />
                   <span className="absolute bottom-3 right-3 flex h-10 w-10 translate-y-2 items-center justify-center rounded-full bg-spotify-green text-black opacity-0 shadow-xl transition group-hover:translate-y-0 group-hover:opacity-100">
                     <Play className="ml-0.5 h-4 w-4 fill-current" />
                   </span>
                 </div>
-                <span className="mt-3 block truncate text-sm font-semibold text-white">{playlist.title}</span>
-                <span className="mt-1 block line-clamp-2 text-xs leading-relaxed text-spotify-subtext">{playlist.description}</span>
+                <span className="mt-3 block truncate text-sm font-semibold text-white">{title}</span>
+                <span className="mt-1 block line-clamp-2 text-xs leading-relaxed text-spotify-subtext">Made for you from {track.name}</span>
               </button>
-            ))}
+              );
+            })}
           </div>
         </section>
 
         <section className="space-y-4">
           <h2 className="text-xl font-bold text-white">Your Top Artists</h2>
           <div className="no-scrollbar flex gap-5 overflow-x-auto scroll-smooth pb-2">
-            {topArtists.map(({ artist, track }) => (
+            {topArtists.map(({ artist, track, cardId }) => (
               <button
-                key={artist.id}
+                key={cardId}
                 type="button"
                 onClick={() => playTrack(track)}
                 className="group flex w-32 shrink-0 flex-col items-center text-center"
                 aria-label={`Play ${artist.name}`}
               >
                 <span className="aspect-square w-full overflow-hidden rounded-full bg-spotify-elevated shadow-lg shadow-black/20 ring-1 ring-white/10 transition group-hover:ring-spotify-green/70">
-                  {track.album?.images?.[0]?.url ? (
-                    <img src={track.album.images[0].url} alt="" className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
-                  ) : (
-                    <span className="flex h-full w-full items-center justify-center text-spotify-green"><Music className="h-8 w-8" /></span>
-                  )}
+                  <ArtworkImage src={artist.images?.[0]?.url} alt={artist.name} className="h-full w-full rounded-full object-cover transition duration-300 group-hover:scale-105" />
                 </span>
                 <span className="mt-3 w-full truncate text-sm font-medium text-white group-hover:text-spotify-green">{artist.name}</span>
               </button>
