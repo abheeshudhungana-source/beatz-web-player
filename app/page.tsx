@@ -79,13 +79,13 @@ export default function Home() {
   const [addedTrackId, setAddedTrackId] = useState<string | null>(null);
   const [lyricsForCurrentTrack, setLyricsForCurrentTrack] = useState<LyricLine[]>([]);
   const [lyricsStatus, setLyricsStatus] = useState<'idle' | 'loading' | 'available' | 'unavailable'>('idle');
+  const [isLyricsOpen, setIsLyricsOpen] = useState(false);
   const [isTrackOptionsOpen, setIsTrackOptionsOpen] = useState(false);
   const [activeNav, setActiveNav] = useState<'home' | 'search'>('home');
   const mainContentRef = useRef<HTMLElement | null>(null);
   const searchSectionRef = useRef<HTMLElement | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const lyricsViewportRef = useRef<HTMLDivElement | null>(null);
-  const lyricsPanelRef = useRef<HTMLElement | null>(null);
   const activeLyricRef = useRef<HTMLParagraphElement | null>(null);
   const lastVolumeRef = useRef<number>(0.8);
   const activeUser = user ?? {
@@ -338,7 +338,7 @@ export default function Home() {
   return (
     <div className="flex h-screen flex-col bg-spotify-dark text-white select-none">
       {/* Top Header */}
-      <header className="z-10 flex h-16 shrink-0 items-center justify-between border-b border-spotify-border bg-spotify-surface/80 px-6 backdrop-blur">
+      <header className={`z-10 flex h-16 shrink-0 items-center justify-between border-b border-spotify-border bg-spotify-surface/80 px-6 backdrop-blur transition-[margin] duration-300 ${isLyricsOpen ? 'md:mr-80 lg:mr-96' : ''}`}>
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-spotify-green">
             <Music className="h-5 w-5 text-black" />
@@ -402,7 +402,7 @@ export default function Home() {
         </div>
       </header>
 
-      <div className="flex min-h-0 flex-1">
+      <div className={`flex min-h-0 flex-1 transition-[margin] duration-300 ${isLyricsOpen ? 'md:mr-80 lg:mr-96' : ''}`}>
         <aside className="relative z-20 flex h-full w-16 shrink-0 border-r border-spotify-border bg-[#101010] px-2" aria-label="Primary navigation">
           <nav className="flex h-full w-full flex-col justify-center gap-3">
             <button
@@ -601,7 +601,7 @@ export default function Home() {
           </div>
         </section>
 
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+        <div className="grid grid-cols-1 gap-6">
           <section className="rounded-3xl border border-spotify-border bg-spotify-surface p-6 shadow-xl shadow-black/20">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-spotify-subtext font-semibold">
@@ -660,60 +660,79 @@ export default function Home() {
             </div>
           </section>
 
-          <aside ref={lyricsPanelRef} id="lyrics-panel" className="rounded-3xl border border-spotify-border bg-spotify-surface p-5 shadow-xl shadow-black/20 flex flex-col">
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold text-white">Lyrics</h3>
-              <span className="text-[11px] text-spotify-subtext font-mono">Now playing</span>
-            </div>
-
-              <div className="mt-4 flex-1 rounded-2xl border border-spotify-border bg-spotify-elevated/35 p-4">
-              <div className="mb-4 flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-spotify-elevated border border-white/10">
-                  {currentTrack?.album?.images?.[0]?.url ? (
-                    <img src={currentTrack.album.images[0].url} alt={currentTrack.name} className="h-full w-full object-cover" />
-                  ) : (
-                    <Music className="h-5 w-5 text-spotify-green" />
-                  )}
-                </div>
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-white">{currentTrack?.name ?? 'No track selected'}</p>
-                  <p className="truncate text-[11px] text-spotify-subtext">{currentTrack?.artists?.[0]?.name ?? 'Artist unavailable'}</p>
-                </div>
-              </div>
-
-              <div ref={lyricsViewportRef} className="max-h-72 space-y-2 overflow-y-auto scroll-smooth pr-2 text-sm leading-7">
-                {lyricsStatus === 'loading' && <p className="text-zinc-500">Finding synchronized lyrics...</p>}
-                {lyricsStatus === 'unavailable' && (
-                  <p className="text-zinc-500">Synchronized lyrics are not available for this track.</p>
-                )}
-                {lyricsStatus === 'idle' && <p className="text-zinc-500">Select a track to view its lyrics.</p>}
-                {lyricsForCurrentTrack.map((line, index) => {
-                  const isActive = index === activeLyricIndex;
-
-                  return (
-                    <p
-                      key={`${currentTrack?.id ?? 'track'}-${line.startMs}-${index}`}
-                      ref={isActive ? activeLyricRef : null}
-                      aria-current={isActive ? 'true' : undefined}
-                      className={[
-                        'rounded-r-md border-l-2 py-1 pl-3 pr-2 transition-colors duration-200',
-                        isActive
-                          ? 'border-spotify-green/70 bg-transparent font-bold text-white'
-                          : 'border-transparent text-zinc-400',
-                      ].join(' ')}
-                    >
-                      {line.text}
-                    </p>
-                  );
-                })}
-              </div>
-            </div>
-
-          </aside>
         </div>
 
         </main>
       </div>
+
+      <aside
+        id="lyrics-panel"
+        aria-label="Lyrics panel"
+        aria-hidden={!isLyricsOpen}
+        className={`fixed right-0 top-0 bottom-24 z-30 flex w-[min(100vw,20rem)] flex-col border-l border-spotify-border bg-spotify-surface p-5 shadow-2xl shadow-black/40 transition-[transform,opacity] duration-300 md:w-80 lg:w-96 ${
+          isLyricsOpen ? 'translate-x-0 opacity-100' : 'pointer-events-none translate-x-full opacity-0'
+        }`}
+      >
+        <div className="flex shrink-0 items-center justify-between">
+          <div>
+            <h3 className="text-base font-bold text-white">Lyrics</h3>
+            <p className="mt-0.5 text-[11px] text-spotify-subtext">Now playing</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsLyricsOpen(false)}
+            className="rounded-full p-2 text-zinc-400 transition hover:bg-spotify-elevated hover:text-white"
+            title="Close lyrics"
+            aria-label="Close lyrics panel"
+            tabIndex={isLyricsOpen ? 0 : -1}
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="mt-4 flex min-h-0 flex-1 flex-col rounded-2xl border border-spotify-border bg-spotify-elevated/35 p-4">
+          <div className="mb-4 flex shrink-0 items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-spotify-elevated">
+              {currentTrack?.album?.images?.[0]?.url ? (
+                <img src={currentTrack.album.images[0].url} alt={currentTrack.name} className="h-full w-full object-cover" />
+              ) : (
+                <Music className="h-5 w-5 text-spotify-green" />
+              )}
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-white">{currentTrack?.name ?? 'No track selected'}</p>
+              <p className="truncate text-[11px] text-spotify-subtext">{currentTrack?.artists?.[0]?.name ?? 'Artist unavailable'}</p>
+            </div>
+          </div>
+
+          <div ref={lyricsViewportRef} className="min-h-0 flex-1 space-y-2 overflow-y-auto scroll-smooth pr-2 text-sm leading-7">
+            {lyricsStatus === 'loading' && <p className="text-zinc-500">Finding synchronized lyrics...</p>}
+            {lyricsStatus === 'unavailable' && (
+              <p className="text-zinc-500">Synchronized lyrics are not available for this track.</p>
+            )}
+            {lyricsStatus === 'idle' && <p className="text-zinc-500">Select a track to view its lyrics.</p>}
+            {lyricsForCurrentTrack.map((line, index) => {
+              const isActive = index === activeLyricIndex;
+
+              return (
+                <p
+                  key={`${currentTrack?.id ?? 'track'}-${line.startMs}-${index}`}
+                  ref={isActive ? activeLyricRef : null}
+                  aria-current={isActive ? 'true' : undefined}
+                  className={[
+                    'rounded-r-md border-l-2 py-1 pl-3 pr-2 transition-colors duration-200',
+                    isActive
+                      ? 'border-spotify-green/70 bg-transparent font-bold text-white'
+                      : 'border-transparent text-zinc-400',
+                  ].join(' ')}
+                >
+                  {line.text}
+                </p>
+              );
+            })}
+          </div>
+        </div>
+      </aside>
 
       {/* Sticky Bottom Player Bar */}
       <footer className="flex h-24 shrink-0 items-center justify-between border-t border-spotify-border bg-spotify-surface px-6 text-xs text-spotify-subtext z-20">
@@ -851,10 +870,11 @@ export default function Home() {
         <div className="flex items-center justify-end gap-2 w-[22%]">
           <button
             type="button"
-            onClick={() => lyricsPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
-            className="rounded-full p-2 text-zinc-400 transition hover:bg-spotify-elevated hover:text-white"
-            title="Go to lyrics"
-            aria-label="Go to lyrics"
+            onClick={() => setIsLyricsOpen((open) => !open)}
+            className={`rounded-full p-2 transition hover:bg-spotify-elevated hover:text-white ${isLyricsOpen ? 'bg-spotify-green/10 text-spotify-green' : 'text-zinc-400'}`}
+            title={isLyricsOpen ? 'Close lyrics' : 'Open lyrics'}
+            aria-label={isLyricsOpen ? 'Close lyrics' : 'Open lyrics'}
+            aria-pressed={isLyricsOpen}
             aria-controls="lyrics-panel"
           >
             <Mic2 className="h-4 w-4" />
