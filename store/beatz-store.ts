@@ -600,15 +600,34 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
     }));
   },
 
-  finishAdBreak: () =>
+  finishAdBreak: () => {
+    // Clear the ad state first
     set((state) => ({
-      isPlaying: true,
+      isPlaying: false, // let playTrack/togglePlay set this to true
       adState: {
         ...state.adState,
         isAdPlaying: false,
         adProgressMs: 0,
       },
-    })),
+    }));
+
+    // Resume the current track properly — SDK or preview path
+    const { currentTrack, isSdkActive, sdkDeviceId } = get();
+
+    if (isSdkActive && sdkDeviceId) {
+      // SDK path: send resume command to Spotify
+      fetch('/api/spotify/player', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'resume', deviceId: sdkDeviceId }),
+      })
+        .then(() => set({ isPlaying: true }))
+        .catch(() => {});
+    } else if (currentTrack) {
+      // Preview path: re-play the current track
+      get().playTrack(currentTrack);
+    }
+  },
 
   toggleQueue: () => set((state) => ({ isQueueOpen: !state.isQueueOpen })),
   setQueueOpen: (open) => set({ isQueueOpen: open }),
