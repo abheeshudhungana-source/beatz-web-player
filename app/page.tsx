@@ -17,6 +17,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Search,
+  House,
   SkipBack,
   SkipForward,
   Shuffle,
@@ -79,6 +80,10 @@ export default function Home() {
   const [lyricsForCurrentTrack, setLyricsForCurrentTrack] = useState<LyricLine[]>([]);
   const [lyricsStatus, setLyricsStatus] = useState<'idle' | 'loading' | 'available' | 'unavailable'>('idle');
   const [isTrackOptionsOpen, setIsTrackOptionsOpen] = useState(false);
+  const [activeNav, setActiveNav] = useState<'home' | 'search'>('home');
+  const mainContentRef = useRef<HTMLElement | null>(null);
+  const searchSectionRef = useRef<HTMLElement | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
   const lyricsViewportRef = useRef<HTMLDivElement | null>(null);
   const lyricsPanelRef = useRef<HTMLElement | null>(null);
   const activeLyricRef = useRef<HTMLParagraphElement | null>(null);
@@ -397,8 +402,49 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Main Content Area */}
-      <main className="flex-1 space-y-8 overflow-y-auto p-6 lg:p-8">
+      <div className="flex min-h-0 flex-1">
+        <aside className="w-16 shrink-0 border-r border-spotify-border bg-[#101010] px-2 py-6 md:w-56 md:px-4" aria-label="Primary navigation">
+          <nav className="flex flex-col gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setActiveNav('home');
+                mainContentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              className={`group flex w-full items-center justify-center gap-3 rounded-xl px-3 py-3.5 text-sm font-medium transition md:justify-start md:px-4 ${
+                activeNav === 'home'
+                  ? 'bg-spotify-elevated text-white'
+                  : 'text-zinc-400 hover:bg-spotify-elevated/70 hover:text-white'
+              }`}
+              aria-current={activeNav === 'home' ? 'page' : undefined}
+              aria-label="Home"
+            >
+              <House className={`h-5 w-5 shrink-0 ${activeNav === 'home' ? 'text-spotify-green' : 'group-hover:text-spotify-green'}`} />
+              <span className="hidden md:inline">Home</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveNav('search');
+                searchSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                searchInputRef.current?.focus({ preventScroll: true });
+              }}
+              className={`group flex w-full items-center justify-center gap-3 rounded-xl px-3 py-3.5 text-sm font-medium transition md:justify-start md:px-4 ${
+                activeNav === 'search'
+                  ? 'bg-spotify-elevated text-white'
+                  : 'text-zinc-400 hover:bg-spotify-elevated/70 hover:text-white'
+              }`}
+              aria-current={activeNav === 'search' ? 'page' : undefined}
+              aria-label="Search"
+            >
+              <Search className={`h-5 w-5 shrink-0 ${activeNav === 'search' ? 'text-spotify-green' : 'group-hover:text-spotify-green'}`} />
+              <span className="hidden md:inline">Search</span>
+            </button>
+          </nav>
+        </aside>
+
+        {/* Main Content Area */}
+        <main ref={mainContentRef} className="min-w-0 flex-1 space-y-8 overflow-y-auto p-6 lg:p-8">
         {adState.isAdPlaying && (
           <div className="rounded-2xl border border-rose-500/40 bg-rose-500/10 p-4 shadow-lg shadow-rose-950/20 animate-in fade-in">
             <div className="flex items-center justify-between gap-4">
@@ -438,10 +484,11 @@ export default function Home() {
 
         </div>
 
-        <section className="rounded-3xl border border-spotify-border bg-spotify-surface p-5 shadow-xl shadow-black/20">
+        <section ref={searchSectionRef} className="rounded-3xl border border-spotify-border bg-spotify-surface p-5 shadow-xl shadow-black/20">
           <div className="relative flex items-center gap-3 rounded-2xl border border-spotify-highlight bg-spotify-elevated px-4 py-3">
             <Search className="h-4 w-4 text-spotify-subtext shrink-0" />
             <input
+              ref={searchInputRef}
               type="text"
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
@@ -665,7 +712,8 @@ export default function Home() {
           </aside>
         </div>
 
-      </main>
+        </main>
+      </div>
 
       {/* Sticky Bottom Player Bar */}
       <footer className="flex h-24 shrink-0 items-center justify-between border-t border-spotify-border bg-spotify-surface px-6 text-xs text-spotify-subtext z-20">
