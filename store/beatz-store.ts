@@ -418,13 +418,10 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
     // Ad pacing: trigger a break every 2 tracks played (demo-friendly threshold)
     const AD_TRACK_THRESHOLD = 2;
     const newCount = state.tracksPlayedSinceLastAd + 1;
-    if (newCount >= AD_TRACK_THRESHOLD && !state.adState.isAdPlaying) {
-      get().triggerAdBreak();
-      set({ tracksPlayedSinceLastAd: 0 });
-      return; // ad plays first — nextTrack will resume via finishAdBreak → isPlaying: true
-    }
 
     const [next, ...rest] = queue;
+
+    // Always advance the queue first so currentTrack is ready
     set({
       queue: {
         ...state.queue,
@@ -439,6 +436,14 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
       isPlaying: true,
       tracksPlayedSinceLastAd: newCount,
     });
+
+    if (newCount >= AD_TRACK_THRESHOLD && !state.adState.isAdPlaying) {
+      // Ad break: pause immediately, show banner. finishAdBreak → togglePlay resumes next track.
+      get().triggerAdBreak();
+      set({ tracksPlayedSinceLastAd: 0 });
+      return;
+    }
+
     get().playTrack(next);
   },
 
