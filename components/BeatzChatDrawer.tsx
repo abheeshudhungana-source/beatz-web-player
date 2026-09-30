@@ -26,6 +26,7 @@ interface ChatMessage {
   sender: 'user' | 'ai';
   text: string;
   tracks?: SpotifyTrack[];
+  followUpOptions?: string[];
   timestamp: Date;
 }
 
@@ -51,11 +52,14 @@ export default function BeatzChatDrawer({ isOpen, onClose }: BeatzChatDrawerProp
   const [isLoading, setIsLoading] = useState(false);
   const [addedTrackIds, setAddedTrackIds] = useState<Record<string, boolean>>({});
   const [queueNotice, setQueueNotice] = useState<string | null>(null);
+  const [lastArtist, setLastArtist] = useState<string | null>(null);
+  const [lastQuery, setLastQuery] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'welcome',
       sender: 'ai',
       text: "👋 Hey there! I'm your **Beatz AI Co-Pilot**, powered by Google Gemini. Ask me to change your musical vibe, queue up underground gems, or uncover trivia about what's currently playing!",
+      followUpOptions: ['Recommend Nepali acoustic songs', 'Queue 3 upbeat tracks', 'Deep focus coding beats'],
       timestamp: new Date(),
     },
   ]);
@@ -97,16 +101,24 @@ export default function BeatzChatDrawer({ isOpen, onClose }: BeatzChatDrawerProp
         body: JSON.stringify({
           message: query,
           currentTrack,
+          lastArtist,
+          lastQuery,
         }),
       });
 
       const data = await response.json();
+
+      if (data.searchedArtist) {
+        setLastArtist(data.searchedArtist);
+      }
+      setLastQuery(query);
 
       const aiMessage: ChatMessage = {
         id: `ai-${Date.now()}`,
         sender: 'ai',
         text: data.text || "Here are your music recommendations!",
         tracks: data.tracks || [],
+        followUpOptions: data.followUpOptions || [],
         timestamp: new Date(),
       };
 
@@ -326,6 +338,24 @@ export default function BeatzChatDrawer({ isOpen, onClose }: BeatzChatDrawerProp
                           </div>
                         );
                       })}
+                  {/* Render Follow-up Option Chips */}
+                  {msg.sender === 'ai' && msg.followUpOptions && msg.followUpOptions.length > 0 && (
+                    <div className="pt-2 space-y-1.5">
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 px-1">
+                        Suggested actions:
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {msg.followUpOptions.map((opt, idx) => (
+                          <button
+                            key={idx}
+                            disabled={isLoading}
+                            onClick={() => handleSend(opt)}
+                            className="rounded-full bg-spotify-elevated hover:bg-spotify-green hover:text-black border border-spotify-border hover:border-spotify-green px-2.5 py-1 text-[11px] font-medium text-zinc-300 transition shadow-sm text-left disabled:opacity-40"
+                          >
+                            💬 {opt}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>

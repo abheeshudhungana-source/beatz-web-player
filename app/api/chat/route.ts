@@ -72,8 +72,10 @@ const TOOLS_CONFIG = [
 async function fallbackHeuristicCurator(
   sanitizedInput: string,
   currentTrackName?: string,
-  accessToken: string | null = null
-): Promise<{ text: string; tracks: SpotifyTrack[]; action?: 'queue' | 'play' }> {
+  accessToken: string | null = null,
+  lastArtist?: string | null,
+  lastQuery?: string | null
+): Promise<{ text: string; tracks: SpotifyTrack[]; action?: 'queue' | 'play'; searchedArtist?: string; followUpOptions?: string[] }> {
   const lower = sanitizedInput.toLowerCase();
 
   if (lower.includes('lore') || lower.includes('meaning') || lower.includes('explain') || lower.includes('about')) {
@@ -108,6 +110,12 @@ async function fallbackHeuristicCurator(
     if (byMatch && byMatch[1] && byMatch[1].trim().length > 1) {
       searchQuery = byMatch[1].trim();
       rationale = `Found top tracks by ${searchQuery}!`;
+    // Check if user is asking for "more" or follow-up
+    const isFollowUp = /^(more|more\?|more please|more of this|another|give me more|show more)\b/i.test(sanitizedInput.trim());
+
+    if (isFollowUp && (lastArtist || lastQuery)) {
+      searchQuery = lastArtist || lastQuery || 'Top Hits';
+      rationale = `Here are more great tracks from ${searchQuery}!`;
     } else {
       // Clean common command phrases to extract pure music query
       const cleanedQuery = sanitizedInput
@@ -125,16 +133,27 @@ async function fallbackHeuristicCurator(
 
   try {
     const tracks = await searchTracks(searchQuery, accessToken ?? null, 3);
+    const primaryArtist = tracks[0]?.artists?.[0]?.name || searchQuery;
+
+    const followUpOptions = [
+      `More by ${primaryArtist}`,
+      `Similar to ${primaryArtist}`,
+      `Upbeat ${primaryArtist} tracks`,
+    ];
+
     return {
       text: rationale,
       tracks: tracks.length > 0 ? tracks : MOCK_TRACKS.slice(0, 3),
       action: 'queue',
+      searchedArtist: primaryArtist,
+      followUpOptions,
     };
   } catch {
     return {
       text: rationale,
       tracks: MOCK_TRACKS.slice(0, 3),
       action: 'queue',
+      followUpOptions: ['More upbeat tracks', 'Different vibe', 'Focus playlist'],
     };
   }
 }
@@ -144,6 +163,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const rawMessage = body?.message;
     const currentTrack = body?.currentTrack as SpotifyTrack | undefined;
+    const lastArtist = body?.lastArtist as string | undefined;
+    const lastQuery = body?.lastQuery as string | undefined;
 
     // SBC Item 4.2: Parameter validation & clamping on incoming input
     if (!rawMessage || typeof rawMessage !== 'string' || rawMessage.trim() === '') {
@@ -172,7 +193,7 @@ export async function POST(request: NextRequest) {
 
     // If no Gemini key is provided, gracefully use the heuristic curator
     if (!GEMINI_API_KEY || GEMINI_API_KEY === 'your_gemini_api_key_here') {
-      const fallbackResult = await fallbackHeuristicCurator(sanitizedInput, currentTrack?.name, accessToken);
+      const fallbackResult = await fallbackHeuristicCurator(sanitizedInput, currentTrack?.name, accessToken, lastArtist, lastQuery);
       return NextResponse.json(fallbackResult);
     }
 
@@ -230,12 +251,19 @@ ${sanitizedInput}
         const rationale = args?.rationale || `Curated ${clampedCount} tracks matching "${searchQuery}".`;
 
         const foundTracks = await searchTracks(searchQuery, accessToken ?? null, clampedCount);
+        const primaryArtist = foundTracks[0]?.artists?.[0]?.name || searchQuery;
 
         return NextResponse.json({
           text: rationale,
           tracks: foundTracks.length > 0 ? foundTracks : MOCK_TRACKS.slice(0, clampedCount),
           action: 'queue',
           query: searchQuery,
+          searchedArtist: primaryArtist,
+          followUpOptions: [
+            `More by ${primaryArtist}`,
+            `Similar to ${primaryArtist}`,
+            `Upbeat ${primaryArtist} tracks`,
+          ],
         });
       }
 
@@ -244,12 +272,19 @@ ${sanitizedInput}
         const rationale = args?.rationale || `Playing "${searchQuery}" right now!`;
 
         const foundTracks = await searchTracks(searchQuery, accessToken ?? null, 1);
+        const primaryArtist = foundTracks[0]?.artists?.[0]?.name || searchQuery;
 
         return NextResponse.json({
           text: rationale,
           tracks: foundTracks.length > 0 ? foundTracks : [MOCK_TRACKS[0]],
           action: 'play',
           query: searchQuery,
+          searchedArtist: primaryArtist,
+          followUpOptions: [
+            `More by ${primaryArtist}`,
+            `Similar to ${primaryArtist}`,
+            `Upbeat ${primaryArtist} tracks`,
+          ],
         });
       }
     }
