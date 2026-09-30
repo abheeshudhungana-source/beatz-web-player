@@ -545,7 +545,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section ref={searchSectionRef} className="space-y-4">
+        <section className="space-y-4">
           <div className="flex items-end justify-between gap-4">
             <h2 className="text-xl font-bold text-white">Popular this week</h2>
             <span className="text-[11px] text-spotify-subtext font-mono">{displayTracks.length} tracks</span>

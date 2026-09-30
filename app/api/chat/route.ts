@@ -150,7 +150,7 @@ async function fallbackHeuristicCurator(
     searchQuery = 'Classic Alternative Rock';
     rationale = "🎸 Riff-heavy selections packed with raw guitars and driving rhythm sections.";
   } else {
-    // Extract specific artist if pattern like "by <artist>" exists
+    // Prefer an explicit artist request before applying conversational follow-up context.
     const byMatch = sanitizedInput.match(/(?:by|from)\s+([a-zA-Z0-9\s]+?)(?:\s+please|\s+for me|[.!?]|$)/i);
     const isFollowUp = /^(more|more\?|more please|more of this|another|give me more|show more)\b/i.test(sanitizedInput.trim());
 

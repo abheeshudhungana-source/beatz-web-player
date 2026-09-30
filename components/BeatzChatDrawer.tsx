@@ -31,10 +31,10 @@ interface ChatMessage {
 }
 
 const QUICK_PROMPTS = [
-  { label: '⚡ Boost Energy', query: 'Queue up 3 high-energy upbeat electronic tracks for a workout' },
-  { label: '🧠 Deep Focus', query: 'Recommend 3 chill instrumental lofi beats for coding concentration' },
-  { label: '🌙 Late Night Chill', query: 'Find 3 mellow ambient tracks for late night listening' },
-  { label: '❓ Explain Song Lore', query: 'Tell me the background trivia, history, and meaning of the current track' },
+  { label: 'Boost Energy', query: 'Queue up 3 high-energy upbeat electronic tracks for a workout' },
+  { label: 'Deep Focus', query: 'Recommend 3 chill instrumental lofi beats for coding concentration' },
+  { label: 'Late Night Chill', query: 'Find 3 mellow ambient tracks for late night listening' },
+  { label: 'Explain Song Lore', query: 'Tell me the background trivia, history, and meaning of the current track' },
 ];
 
 interface BeatzChatDrawerProps {
@@ -340,7 +340,6 @@ export default function BeatzChatDrawer({ isOpen, onClose }: BeatzChatDrawerProp
                       })}
                     </div>
                   )}
-
                   {/* Render Follow-up Option Chips */}
                   {msg.sender === 'ai' && msg.followUpOptions && msg.followUpOptions.length > 0 && (
                     <div className="pt-2 space-y-1.5">
