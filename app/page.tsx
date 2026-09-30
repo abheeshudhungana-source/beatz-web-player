@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSpotifyAuth } from '@/hooks/useSpotifyAuth';
-import { useSpotifySearch } from '@/hooks/useSpotifySearch';
 import { useSpotifyPlayer } from '@/hooks/useSpotifyPlayer';
 import { QueueDrawer } from '@/components/QueueDrawer';
 import BeatzChatDrawer from '@/components/BeatzChatDrawer';
@@ -33,7 +32,6 @@ import {
   VolumeX,
   Plus,
   Check,
-  Loader2,
   X,
 } from 'lucide-react';
 
@@ -75,7 +73,6 @@ function parseSyncedLyrics(syncedLyrics: string): LyricLine[] {
 
 export default function Home() {
   const { isAuthenticated, isLoading, user, accessToken, login, logout } = useSpotifyAuth();
-  const { query: searchQuery, setQuery: setSearchQuery, results: searchResults, isSearching } = useSpotifySearch();
   const [addedTrackId, setAddedTrackId] = useState<string | null>(null);
   const [lyricsForCurrentTrack, setLyricsForCurrentTrack] = useState<LyricLine[]>([]);
   const [lyricsStatus, setLyricsStatus] = useState<'idle' | 'loading' | 'available' | 'unavailable'>('idle');
@@ -84,7 +81,6 @@ export default function Home() {
   const [activeNav, setActiveNav] = useState<'home' | 'search'>('home');
   const mainContentRef = useRef<HTMLElement | null>(null);
   const searchSectionRef = useRef<HTMLElement | null>(null);
-  const searchInputRef = useRef<HTMLInputElement | null>(null);
   const lyricsViewportRef = useRef<HTMLDivElement | null>(null);
   const activeLyricRef = useRef<HTMLParagraphElement | null>(null);
   const lastVolumeRef = useRef<number>(0.8);
@@ -178,17 +174,24 @@ export default function Home() {
     };
   }, [currentTrack, queue]);
 
-  const displayTracks = useMemo(() => {
-    if (searchResults.length > 0) return searchResults;
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      return MOCK_TRACKS.filter((track) => {
-        const trackText = `${track.name} ${track.artists.map((artist) => artist.name).join(' ')}`.toLowerCase();
-        return trackText.includes(q);
-      });
-    }
-    return MOCK_TRACKS;
-  }, [searchResults, searchQuery]);
+  const displayTracks = MOCK_TRACKS;
+  const jumpBackTracks = useMemo(() => {
+    const tracks = [
+      ...(currentTrack ? [currentTrack] : []),
+      ...(queue.currentlyPlaying && queue.currentlyPlaying.id !== currentTrack?.id ? [queue.currentlyPlaying] : []),
+      ...queue.upcomingTracks,
+    ];
+    const uniqueTracks = Array.from(new Map(tracks.map((track) => [track.id, track] as const)).values());
+    return (uniqueTracks.length ? uniqueTracks : MOCK_TRACKS).slice(0, 8);
+  }, [currentTrack, queue.currentlyPlaying, queue.upcomingTracks]);
+  const topArtists = useMemo(() => {
+    const seenArtistIds = new Set<string>();
+    return MOCK_TRACKS.flatMap((track) => track.artists.map((artist) => ({ artist, track }))).filter(({ artist }) => {
+      if (seenArtistIds.has(artist.id)) return false;
+      seenArtistIds.add(artist.id);
+      return true;
+    });
+  }, []);
 
   const lyricTrackId = currentTrack?.id;
   const lyricTrackName = currentTrack?.name;
@@ -427,7 +430,6 @@ export default function Home() {
               onClick={() => {
                 setActiveNav('search');
                 searchSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                searchInputRef.current?.focus({ preventScroll: true });
               }}
               className={`group relative flex h-12 w-full items-center justify-center rounded-xl text-sm font-medium transition ${
                 activeNav === 'search'
@@ -444,7 +446,19 @@ export default function Home() {
         </aside>
 
         {/* Main Content Area */}
-        <main ref={mainContentRef} className="min-w-0 flex-1 space-y-8 overflow-y-auto p-6 lg:p-8">
+        <main ref={mainContentRef} className="min-w-0 flex-1 overflow-y-auto">
+          <div className="sticky top-0 z-20 border-b border-spotify-border bg-spotify-dark/95 px-6 py-3 backdrop-blur lg:px-8">
+            {!adState.isAdPlaying && (
+              <button
+                onClick={() => triggerAdBreak()}
+                className="rounded-full border border-spotify-border bg-spotify-surface px-3 py-2 text-xs font-semibold text-zinc-300 transition hover:border-spotify-green/50 hover:text-spotify-green"
+              >
+                Dev: Ad pacing
+              </button>
+            )}
+          </div>
+
+          <div className="space-y-10 p-6 lg:space-y-12 lg:p-8">
         {adState.isAdPlaying && (
           <div className="rounded-2xl border border-rose-500/40 bg-rose-500/10 p-4 shadow-lg shadow-rose-950/20 animate-in fade-in">
             <div className="flex items-center justify-between gap-4">
@@ -472,132 +486,148 @@ export default function Home() {
           </div>
         )}
 
-        <div className="flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-spotify-subtext">
-          {!adState.isAdPlaying && (
-            <button
-              onClick={() => triggerAdBreak()}
-              className="rounded-full border border-spotify-border bg-spotify-surface px-2.5 py-1.5 text-[10px] font-semibold text-zinc-300 transition hover:border-spotify-green/50 hover:text-spotify-green"
-            >
-              Dev: Ad pacing
-            </button>
-          )}
-
-        </div>
-
-        <section ref={searchSectionRef} className="rounded-3xl border border-spotify-border bg-spotify-surface p-5 shadow-xl shadow-black/20">
-          <div className="relative flex items-center gap-3 rounded-2xl border border-spotify-highlight bg-spotify-elevated px-4 py-3">
-            <Search className="h-4 w-4 text-spotify-subtext shrink-0" />
-            <input
-              ref={searchInputRef}
-              type="text"
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Search songs, artists, or albums (e.g. The Weeknd, Dua Lipa, Ed Sheeran)..."
-              className="w-full bg-transparent text-sm text-white placeholder:text-spotify-subtext outline-none pr-8"
-            />
-            {searchQuery.trim().length > 0 && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 flex h-5 w-5 items-center justify-center rounded-full bg-white/10 text-zinc-300 transition hover:bg-white/20 hover:text-white"
-                title="Clear search"
-                aria-label="Clear search"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
-            {isSearching && (
-              <Loader2 className="absolute right-10 h-4 w-4 text-spotify-green animate-spin shrink-0" />
-            )}
+        <section className="space-y-4">
+          <div>
+            <p className="text-sm font-medium text-spotify-subtext">Your music, right where you left it</p>
+            <h1 className="mt-1 text-3xl font-bold tracking-tight text-white md:text-4xl">Good afternoon</h1>
           </div>
+          <h2 className="pt-1 text-xl font-bold text-white">Jump Back In</h2>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
+            {jumpBackTracks.map((track) => (
+              <button
+                key={track.id}
+                type="button"
+                onClick={() => playTrack(track)}
+                className="group flex min-w-0 items-center gap-3 overflow-hidden rounded-lg bg-spotify-elevated/65 text-left transition hover:bg-[#303030]"
+              >
+                {track.album?.images?.[0]?.url ? (
+                  <img src={track.album.images[0].url} alt="" className="h-14 w-14 shrink-0 object-cover" />
+                ) : (
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center bg-spotify-elevated text-spotify-green"><Music className="h-5 w-5" /></div>
+                )}
+                <span className="min-w-0 flex-1 py-2 pr-3">
+                  <span className="block truncate text-xs font-semibold text-white group-hover:text-spotify-green">{track.name}</span>
+                  <span className="mt-1 block truncate text-[10px] text-spotify-subtext">{track.artists.map((artist) => artist.name).join(', ')}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+        </section>
 
-          <div className="mt-5 space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-zinc-200">
-                {searchQuery ? `Search results for "${searchQuery}"` : '🔥 Popular this week'}
-              </h3>
-              <span className="text-[11px] text-spotify-subtext font-mono">{displayTracks.length} tracks</span>
-            </div>
-
-            <div className="grid gap-3 md:grid-cols-2">
-              {displayTracks.map((track) => {
-                const isJustAdded = addedTrackId === track.id;
-                return (
-                  <div
-                    key={track.id}
-                    onClick={() => playTrack(track)}
-                    className="flex items-center justify-between rounded-2xl border border-spotify-border bg-spotify-elevated/60 p-3 text-left transition hover:border-spotify-green/40 hover:bg-spotify-elevated cursor-pointer group"
-                  >
-                    <div className="flex min-w-0 items-center gap-3 flex-1">
-                      <div className="group relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl bg-spotify-green/15 text-spotify-green shrink-0">
-                        {track.album?.images?.[0]?.url ? (
-                          <img src={track.album.images[0].url} alt={track.name} className="h-full w-full object-cover" />
-                        ) : (
-                          <Music className="h-5 w-5" />
-                        )}
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            playTrack(track);
-                          }}
-                          className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/35 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
-                          title="Play track"
-                          aria-label={`Play ${track.name}`}
-                        >
-                          <Play className="h-4 w-4 fill-current text-white ml-0.5" />
-                        </button>
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-white group-hover:text-spotify-green transition">{track.name}</p>
-                        <p className="truncate text-[11px] text-spotify-subtext">
-                          {track.artists.map((artist: any) => artist.name).join(', ')}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 pl-3 shrink-0 opacity-0 transition duration-200 group-hover:opacity-100">
-                      <span className="text-[11px] text-zinc-400 font-mono hidden sm:inline">
-                        {formatDuration(track.durationMs)}
-                      </span>
+        <section ref={searchSectionRef} className="space-y-4">
+          <div className="flex items-end justify-between gap-4">
+            <h2 className="text-xl font-bold text-white">Popular this week</h2>
+            <span className="text-[11px] text-spotify-subtext font-mono">{displayTracks.length} tracks</span>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            {displayTracks.map((track) => {
+              const isJustAdded = addedTrackId === track.id;
+              return (
+                <div
+                  key={track.id}
+                  onClick={() => playTrack(track)}
+                  className="group flex cursor-pointer items-center justify-between rounded-2xl border border-spotify-border bg-spotify-elevated/60 p-3 text-left transition hover:border-spotify-green/40 hover:bg-spotify-elevated"
+                >
+                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                    <div className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-spotify-green/15 text-spotify-green">
+                      {track.album?.images?.[0]?.url ? <img src={track.album.images[0].url} alt={track.name} className="h-full w-full object-cover" /> : <Music className="h-5 w-5" />}
                       <button
                         type="button"
-                        onClick={(e) => handleAddToQueue(e, track)}
-                        className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition ${
-                          isJustAdded
-                            ? 'bg-spotify-green text-black font-semibold'
-                            : 'bg-spotify-highlight text-zinc-300 hover:bg-white hover:text-black'
-                        }`}
-                        title="Add to upcoming queue"
-                      >
-                        {isJustAdded ? (
-                          <>
-                            <Check className="h-3 w-3" />
-                            <span>Added</span>
-                          </>
-                        ) : (
-                          <>
-                            <Plus className="h-3 w-3" />
-                            <span>Queue</span>
-                          </>
-                        )}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
+                        onClick={(event) => {
+                          event.stopPropagation();
                           playTrack(track);
                         }}
-                        className="rounded-full bg-white text-black p-1.5 transition hover:scale-105 active:scale-95 shadow-md shadow-white/10"
-                        title="Play immediately"
+                        className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/35 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+                        title="Play track"
+                        aria-label={`Play ${track.name}`}
                       >
-                        <Play className="h-3.5 w-3.5 fill-black ml-0.5" />
+                        <Play className="ml-0.5 h-4 w-4 fill-current text-white" />
                       </button>
                     </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-white transition group-hover:text-spotify-green">{track.name}</p>
+                      <p className="truncate text-[11px] text-spotify-subtext">{track.artists.map((artist) => artist.name).join(', ')}</p>
+                    </div>
                   </div>
-                );
-              })}
-            </div>
+                  <div className="flex shrink-0 items-center gap-2 pl-3 opacity-0 transition duration-200 group-hover:opacity-100">
+                    <span className="hidden font-mono text-[11px] text-zinc-400 sm:inline">{formatDuration(track.durationMs)}</span>
+                    <button
+                      type="button"
+                      onClick={(event) => handleAddToQueue(event, track)}
+                      className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition ${isJustAdded ? 'bg-spotify-green font-semibold text-black' : 'bg-spotify-highlight text-zinc-300 hover:bg-white hover:text-black'}`}
+                      title="Add to upcoming queue"
+                    >
+                      {isJustAdded ? <><Check className="h-3 w-3" /><span>Added</span></> : <><Plus className="h-3 w-3" /><span>Queue</span></>}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        playTrack(track);
+                      }}
+                      className="rounded-full bg-white p-1.5 text-black shadow-md shadow-white/10 transition hover:scale-105 active:scale-95"
+                      title="Play immediately"
+                    >
+                      <Play className="ml-0.5 h-3.5 w-3.5 fill-black" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="space-y-4">
+          <h2 className="text-xl font-bold text-white">Made For You</h2>
+          <div className="no-scrollbar flex gap-5 overflow-x-auto scroll-smooth pb-2">
+            {[
+              { title: 'After Hours Drive', description: 'Neon-lit pop for the long way home', track: MOCK_TRACKS[1] },
+              { title: 'Dreamwave', description: 'Wide-open sounds and midnight skies', track: MOCK_TRACKS[2] },
+              { title: 'Dance Floor Essentials', description: 'Big hooks, brighter nights', track: MOCK_TRACKS[3] },
+              { title: 'Acoustic Weekend', description: 'Familiar songs for a slower day', track: MOCK_TRACKS[4] },
+            ].map((playlist) => (
+              <button
+                key={playlist.title}
+                type="button"
+                onClick={() => playTrack(playlist.track)}
+                className="group w-40 shrink-0 text-left sm:w-48"
+                aria-label={`Play ${playlist.title}`}
+              >
+                <div className="relative aspect-square overflow-hidden rounded-lg bg-spotify-elevated">
+                  <img src={playlist.track.album.images[0]?.url} alt="" className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
+                  <div className="absolute inset-0 bg-black/0 transition group-hover:bg-black/20" />
+                  <span className="absolute bottom-3 right-3 flex h-10 w-10 translate-y-2 items-center justify-center rounded-full bg-spotify-green text-black opacity-0 shadow-xl transition group-hover:translate-y-0 group-hover:opacity-100">
+                    <Play className="ml-0.5 h-4 w-4 fill-current" />
+                  </span>
+                </div>
+                <span className="mt-3 block truncate text-sm font-semibold text-white">{playlist.title}</span>
+                <span className="mt-1 block line-clamp-2 text-xs leading-relaxed text-spotify-subtext">{playlist.description}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="space-y-4">
+          <h2 className="text-xl font-bold text-white">Your Top Artists</h2>
+          <div className="no-scrollbar flex gap-5 overflow-x-auto scroll-smooth pb-2">
+            {topArtists.map(({ artist, track }) => (
+              <button
+                key={artist.id}
+                type="button"
+                onClick={() => playTrack(track)}
+                className="group flex w-32 shrink-0 flex-col items-center text-center"
+                aria-label={`Play ${artist.name}`}
+              >
+                <span className="aspect-square w-full overflow-hidden rounded-full bg-spotify-elevated shadow-lg shadow-black/20 ring-1 ring-white/10 transition group-hover:ring-spotify-green/70">
+                  {track.album?.images?.[0]?.url ? (
+                    <img src={track.album.images[0].url} alt="" className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
+                  ) : (
+                    <span className="flex h-full w-full items-center justify-center text-spotify-green"><Music className="h-8 w-8" /></span>
+                  )}
+                </span>
+                <span className="mt-3 w-full truncate text-sm font-medium text-white group-hover:text-spotify-green">{artist.name}</span>
+              </button>
+            ))}
           </div>
         </section>
 
@@ -662,6 +692,7 @@ export default function Home() {
 
         </div>
 
+          </div>
         </main>
       </div>
 
