@@ -264,10 +264,17 @@ ${sanitizedInput}
       },
     };
 
-    // Call Gemini 1.5 Flash
-    const geminiRes = await fetch(`${GEMINI_ENDPOINT}?key=${GEMINI_API_KEY}`, {
+    // Call Gemini 1.5 Flash - Support both Google AI Studio API Keys (AIzaSy...) and Vertex AI OAuth tokens (AQ...)
+    const isBearerToken = GEMINI_API_KEY.startsWith('AQ.') || GEMINI_API_KEY.startsWith('ya29.');
+    const fetchUrl = isBearerToken ? GEMINI_ENDPOINT : `${GEMINI_ENDPOINT}?key=${GEMINI_API_KEY}`;
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (isBearerToken) {
+      headers['Authorization'] = `Bearer ${GEMINI_API_KEY}`;
+    }
+
+    const geminiRes = await fetch(fetchUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(requestPayload),
     });
 
