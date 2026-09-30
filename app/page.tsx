@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useSpotifyAuth } from '@/hooks/useSpotifyAuth';
 import { useSpotifyPlayer } from '@/hooks/useSpotifyPlayer';
 import { QueueDrawer } from '@/components/QueueDrawer';
@@ -103,6 +104,7 @@ function parseSyncedLyrics(syncedLyrics: string): LyricLine[] {
 }
 
 export default function Home() {
+  const router = useRouter();
   const { isAuthenticated, isLoading, user, accessToken, login, logout } = useSpotifyAuth();
   const [addedTrackId, setAddedTrackId] = useState<string | null>(null);
   const [lyricsForCurrentTrack, setLyricsForCurrentTrack] = useState<LyricLine[]>([]);
@@ -111,7 +113,6 @@ export default function Home() {
   const [isTrackOptionsOpen, setIsTrackOptionsOpen] = useState(false);
   const [activeNav, setActiveNav] = useState<'home' | 'search'>('home');
   const mainContentRef = useRef<HTMLElement | null>(null);
-  const searchSectionRef = useRef<HTMLElement | null>(null);
   const lyricsViewportRef = useRef<HTMLDivElement | null>(null);
   const activeLyricRef = useRef<HTMLParagraphElement | null>(null);
   const lastVolumeRef = useRef<number>(0.8);
@@ -464,7 +465,7 @@ export default function Home() {
               type="button"
               onClick={() => {
                 setActiveNav('search');
-                searchSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                router.push('/search');
               }}
               className={`group relative flex h-12 w-full items-center justify-center rounded-xl text-sm font-medium transition ${
                 activeNav === 'search'
