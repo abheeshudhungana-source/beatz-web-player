@@ -39,6 +39,7 @@ interface BeatzStore {
   isPremium: boolean;
   sdkError: string | null;
   isSeeking: boolean; // true for ~1s after a seek — blocks poll from overwriting progressMs
+  tracksPlayedSinceLastAd: number; // increments on every nextTrack(); triggers ad after threshold
 
   setSdkDeviceId: (deviceId: string | null) => void;
   setSdkActive: (active: boolean) => void;
@@ -101,6 +102,7 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
   isPremium: false,
   sdkError: null,
   isSeeking: false,
+  tracksPlayedSinceLastAd: 0,
 
   setSdkDeviceId: (deviceId) => set({ sdkDeviceId: deviceId }),
   setSdkActive: (active) => set({ isSdkActive: active }),
@@ -413,6 +415,15 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
       return;
     }
 
+    // Ad pacing: trigger a break every 2 tracks played (demo-friendly threshold)
+    const AD_TRACK_THRESHOLD = 2;
+    const newCount = state.tracksPlayedSinceLastAd + 1;
+    if (newCount >= AD_TRACK_THRESHOLD && !state.adState.isAdPlaying) {
+      get().triggerAdBreak();
+      set({ tracksPlayedSinceLastAd: 0 });
+      return; // ad plays first — nextTrack will resume via finishAdBreak → isPlaying: true
+    }
+
     const [next, ...rest] = queue;
     set({
       queue: {
@@ -426,6 +437,7 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
       durationMs: next.durationMs,
       progressMs: 0,
       isPlaying: true,
+      tracksPlayedSinceLastAd: newCount,
     });
     get().playTrack(next);
   },
