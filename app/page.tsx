@@ -23,7 +23,6 @@ import {
   Repeat,
   Repeat1,
   Pause,
-  Heart,
   MoreHorizontal,
   Mic2,
   Share2,
@@ -780,13 +779,6 @@ export default function Home() {
               <p className="truncate font-semibold text-white text-sm">{nowPlaying.title}</p>
               <p className="truncate text-[11px] text-spotify-subtext">{nowPlaying.artist}</p>
             </div>
-            <button
-              className="self-center rounded-full p-1.5 text-zinc-400 hover:text-spotify-green transition"
-              title="Like Song"
-              aria-label="Like Song"
-            >
-              <Heart className="h-4 w-4" />
-            </button>
             <div className="relative">
               <button
                 type="button"
