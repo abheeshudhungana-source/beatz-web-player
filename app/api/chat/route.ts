@@ -71,18 +71,63 @@ const TOOLS_CONFIG = [
 // Fallback heuristic curator when Gemini is rate-limited or in offline demo mode
 async function fallbackHeuristicCurator(
   sanitizedInput: string,
-  currentTrackName?: string,
+  currentTrack?: SpotifyTrack | null,
   accessToken: string | null = null,
   lastArtist?: string | null,
   lastQuery?: string | null
 ): Promise<{ text: string; tracks: SpotifyTrack[]; action?: 'queue' | 'play'; searchedArtist?: string; followUpOptions?: string[] }> {
   const lower = sanitizedInput.toLowerCase();
+  const activeTrackName = currentTrack?.name || 'the current song';
+  const activeArtistName = currentTrack?.artists?.map((a: any) => a.name).join(', ') || 'this artist';
 
-  if (lower.includes('lore') || lower.includes('meaning') || lower.includes('explain') || lower.includes('about')) {
-    const track = currentTrackName || 'Never Gonna Give You Up';
+  // 1. Handle Lyrics queries with true conversational context awareness
+  if (lower.includes('lyric') || lower.includes('words to') || lower.includes('what are they singing')) {
+    if (currentTrack) {
+      return {
+        text: `🎤 You're currently listening to **"${currentTrack.name}"** by **${activeArtistName}**!\n\nYou can follow along with the live synchronized lyrics right in your **Lyrics panel on the right side** of your screen.`,
+        tracks: [],
+        searchedArtist: currentTrack.artists?.[0]?.name,
+        followUpOptions: [
+          `Tell me the story behind "${currentTrack.name}"`,
+          `More songs by ${currentTrack.artists?.[0]?.name || activeArtistName}`,
+          `Songs with similar vibes to ${activeArtistName}`,
+        ],
+      };
+    } else {
+      return {
+        text: `🎵 No song is actively playing right now! Play a track from your popular list or search an artist, and I'll display the synchronized lyrics for you.`,
+        tracks: [],
+        followUpOptions: ['Play top Nepali hits', 'Queue upbeat pop', 'Focus study beats'],
+      };
+    }
+  }
+
+  // 2. Handle Lore / Meaning / Story queries
+  if (lower.includes('lore') || lower.includes('meaning') || lower.includes('explain') || lower.includes('about this song') || lower.includes('who is this')) {
+    const track = currentTrack?.name || 'this track';
     return {
-      text: `🎵 **Lore on "${track}"**: Recorded with iconic production, this track became a defining anthem of its era with infectious synthesizers and timeless vocal delivery that still resonates across streaming charts today!`,
+      text: `🎵 **About "${track}" by ${activeArtistName}**:\nThis track highlights heartfelt songwriting and dynamic instrumentation, capturing raw emotion that resonates deeply with listeners across platforms.`,
       tracks: [],
+      searchedArtist: currentTrack?.artists?.[0]?.name,
+      followUpOptions: [
+        `More by ${currentTrack?.artists?.[0]?.name || activeArtistName}`,
+        `Similar songs to this`,
+        `Switch to upbeat mode`,
+      ],
+    };
+  }
+
+  // 3. Handle vague / conversational greetings with clarifying questions
+  if (/^(hi|hello|hey|yo|sup|help|what can you do)\b/i.test(sanitizedInput.trim()) || lower === 'recommend' || lower === 'play something') {
+    return {
+      text: `👋 Hey! I'm your Beatz AI Co-Pilot. What kind of vibe or artist would you like to dive into right now?`,
+      tracks: [],
+      followUpOptions: [
+        'Recommend upbeat songs by Bipul Chettri',
+        '⚡ High-energy workout hits',
+        '🧠 Chill instrumental lofi for focus',
+        '🌙 Late night acoustic session',
+      ],
     };
   }
 
@@ -192,7 +237,7 @@ export async function POST(request: NextRequest) {
 
     // If no Gemini key is provided, gracefully use the heuristic curator
     if (!GEMINI_API_KEY || GEMINI_API_KEY === 'your_gemini_api_key_here') {
-      const fallbackResult = await fallbackHeuristicCurator(sanitizedInput, currentTrack?.name, accessToken, lastArtist, lastQuery);
+      const fallbackResult = await fallbackHeuristicCurator(sanitizedInput, currentTrack, accessToken, lastArtist, lastQuery);
       return NextResponse.json(fallbackResult);
     }
 
@@ -228,7 +273,7 @@ ${sanitizedInput}
 
     if (!geminiRes.ok) {
       console.warn(`[Gemini API] Returned status ${geminiRes.status}. Using resilient fallback.`);
-      const fallbackResult = await fallbackHeuristicCurator(sanitizedInput, currentTrack?.name, accessToken);
+      const fallbackResult = await fallbackHeuristicCurator(sanitizedInput, currentTrack, accessToken, lastArtist, lastQuery);
       return NextResponse.json(fallbackResult);
     }
 
