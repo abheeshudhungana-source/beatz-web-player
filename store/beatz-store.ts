@@ -94,8 +94,16 @@ interface BeatzStore {
 
 let previewAudio: HTMLAudioElement | null = null;
 
-const getUpcomingQueueAfterCurrent = (currentTrack: SpotifyTrack | null, upcomingTracks: SpotifyTrack[] = []) =>
-  upcomingTracks.filter((track) => track.id !== currentTrack?.id);
+const getUpcomingQueueAfterCurrent = (currentTrack: SpotifyTrack | null, upcomingTracks: SpotifyTrack[] = []) => {
+  const seenTrackIds = new Set<string>();
+  if (currentTrack) seenTrackIds.add(currentTrack.id);
+
+  return upcomingTracks.filter((track) => {
+    if (seenTrackIds.has(track.id)) return false;
+    seenTrackIds.add(track.id);
+    return true;
+  });
+};
 
 export const useBeatzStore = create<BeatzStore>((set, get) => ({
   currentTrack: initialQueue.currentlyPlaying,
@@ -186,6 +194,11 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
   },
 
   addToQueue: (track) => {
+    const state = get();
+    const alreadyQueued = state.currentTrack?.id === track.id ||
+      state.queue.upcomingTracks.some((queuedTrack) => queuedTrack.id === track.id);
+    if (alreadyQueued) return;
+
     set((state) => ({
       queue: {
         ...state.queue,
@@ -201,15 +214,27 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
   },
 
   addMultipleToQueue: (tracks) => {
+    const state = get();
+    const seenTrackIds = new Set([
+      ...(state.currentTrack ? [state.currentTrack.id] : []),
+      ...state.queue.upcomingTracks.map((track) => track.id),
+    ]);
+    const newTracks = tracks.filter((track) => {
+      if (seenTrackIds.has(track.id)) return false;
+      seenTrackIds.add(track.id);
+      return true;
+    });
+    if (newTracks.length === 0) return;
+
     set((state) => ({
       queue: {
         ...state.queue,
-        upcomingTracks: [...state.queue.upcomingTracks, ...tracks],
+        upcomingTracks: [...state.queue.upcomingTracks, ...newTracks],
       },
     }));
 
     if (get().isSdkActive) {
-      void syncSpotifyQueueTracks(tracks).catch((error: unknown) => {
+      void syncSpotifyQueueTracks(newTracks).catch((error: unknown) => {
         console.warn('[Spotify queue] Failed to add tracks:', error);
       });
     }
@@ -241,7 +266,9 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
       }));
       return;
     }
-    const [first, ...rest] = tracks;
+    const uniqueTracks = getUpcomingQueueAfterCurrent(null, tracks);
+    if (uniqueTracks.length === 0) return;
+    const [first, ...rest] = uniqueTracks;
     set((state) => ({
       queue: {
         ...state.queue,

@@ -201,15 +201,16 @@ export function QueueDrawer(props: QueueDrawerProps = {}) {
                           <Play className="h-3.5 w-3.5 fill-current" />
                         </button>
 
-                        {!isSdkActive && (
-                          <button
-                            onClick={() => removeFromQueue(track.id)}
-                            className="p-1 text-zinc-400 opacity-0 group-hover:opacity-100 hover:text-red-400 transition"
-                            title="Remove from Queue"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => removeFromQueue(track.id)}
+                          disabled={isSdkActive}
+                          className="p-1 text-zinc-400 opacity-0 transition group-hover:opacity-100 hover:text-red-400 disabled:cursor-not-allowed disabled:hover:text-zinc-400"
+                          title={isSdkActive ? 'Spotify does not allow removing individual live queue tracks' : 'Remove from Queue'}
+                          aria-label={`Remove ${track.name} from queue`}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
                       </div>
                     </div>
                   );
