@@ -6,7 +6,7 @@ import { useSpotifyAuth } from '@/hooks/useSpotifyAuth';
 import { useSpotifySearch } from '@/hooks/useSpotifySearch';
 import { MOCK_TRACKS } from '@/lib/spotify';
 import { useBeatzStore } from '@/store/beatz-store';
-import { Check, Loader2, Music, Play, Plus, Search } from 'lucide-react';
+import { Check, Loader2, MoreHorizontal, Music, Play, Plus, Search, Volume2 } from 'lucide-react';
 import type { SpotifyTrack } from '@/types/spotify';
 
 interface RecentSearch {
@@ -17,27 +17,45 @@ interface RecentSearch {
 }
 
 const BROWSE_CATEGORIES = [
-  { name: 'Made For You', color: 'bg-[#6040a0]' },
-  { name: 'New Releases', color: 'bg-[#236a50]' },
-  { name: 'Hip-Hop', color: 'bg-[#a33b48]' },
-  { name: 'Workout', color: 'bg-[#bb572e]' },
-  { name: 'Deep Focus', color: 'bg-[#315d76]' },
-  { name: 'Pop', color: 'bg-[#a43d70]' },
-  { name: 'Dance / Electronic', color: 'bg-[#5447a1]' },
-  { name: 'Mood', color: 'bg-[#4e713c]' },
-  { name: 'Indie', color: 'bg-[#9b6a27]' },
-  { name: 'Rock', color: 'bg-[#7b3c35]' },
-  { name: 'Chill', color: 'bg-[#34727b]' },
-  { name: 'R&B', color: 'bg-[#673e79]' },
+  { name: 'Made For You', color: 'bg-[#6040a0]', imageUrl: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=400&q=80' },
+  { name: 'New Releases', color: 'bg-[#236a50]', imageUrl: 'https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=400&q=80' },
+  { name: 'Hip-Hop', color: 'bg-[#a33b48]', imageUrl: 'https://images.unsplash.com/photo-1524368535928-5b5e00ddc76b?auto=format&fit=crop&w=400&q=80' },
+  { name: 'Workout', color: 'bg-[#bb572e]', imageUrl: 'https://images.unsplash.com/photo-1534258936925-c58bed479fcb?auto=format&fit=crop&w=400&q=80' },
+  { name: 'Deep Focus', color: 'bg-[#315d76]', imageUrl: 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=400&q=80' },
+  { name: 'Pop', color: 'bg-[#a43d70]', imageUrl: 'https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=400&q=80' },
+  { name: 'Dance / Electronic', color: 'bg-[#5447a1]', imageUrl: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=400&q=80' },
+  { name: 'Mood', color: 'bg-[#4e713c]', imageUrl: 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=400&q=80' },
+  { name: 'Indie', color: 'bg-[#9b6a27]', imageUrl: 'https://images.unsplash.com/photo-1510915361894-db8b60106cb1?auto=format&fit=crop&w=400&q=80' },
+  { name: 'Rock', color: 'bg-[#7b3c35]', imageUrl: 'https://images.unsplash.com/photo-1506157786151-b8491531f063?auto=format&fit=crop&w=400&q=80' },
+  { name: 'Chill', color: 'bg-[#34727b]', imageUrl: 'https://images.unsplash.com/photo-1519608487953-e999c86e7455?auto=format&fit=crop&w=400&q=80' },
+  { name: 'R&B', color: 'bg-[#673e79]', imageUrl: 'https://images.unsplash.com/photo-1478737270239-2f02b77fc618?auto=format&fit=crop&w=400&q=80' },
 ];
 
+function uniqueRecentSearches(searches: RecentSearch[]): RecentSearch[] {
+  const seenArtists = new Set<string>();
+
+  return searches.filter((search) => {
+    const artist = search.label.trim().toLowerCase();
+    if (!artist || seenArtists.has(artist)) return false;
+    seenArtists.add(artist);
+    return true;
+  }).slice(0, 6);
+}
+
 function makeRecentSearches(tracks: SpotifyTrack[]): RecentSearch[] {
-  return tracks.slice(0, 6).map((track) => ({
+  return uniqueRecentSearches(tracks.map((track) => ({
     key: track.id,
     label: track.artists[0]?.name ?? track.name,
     query: track.artists[0]?.name ?? track.name,
     imageUrl: track.album?.images?.[0]?.url,
-  }));
+  })));
+}
+
+function formatDuration(durationMs: number): string {
+  const totalSeconds = Math.floor(durationMs / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
 export default function SearchPage() {
@@ -45,8 +63,11 @@ export default function SearchPage() {
   const { query, setQuery, results, isSearching } = useSpotifySearch();
   const addToQueue = useBeatzStore((state) => state.addToQueue);
   const playTrack = useBeatzStore((state) => state.playTrack);
+  const currentTrack = useBeatzStore((state) => state.currentTrack);
+  const isPlaying = useBeatzStore((state) => state.isPlaying);
   const [recentSearches, setRecentSearches] = useState(() => makeRecentSearches(MOCK_TRACKS));
   const [addedTrackIds, setAddedTrackIds] = useState<Record<string, boolean>>({});
+  const [openTrackOptionsId, setOpenTrackOptionsId] = useState<string | null>(null);
 
   useEffect(() => {
     const stored = window.localStorage.getItem('beatz-recent-searches');
@@ -54,7 +75,7 @@ export default function SearchPage() {
     try {
       const parsed = JSON.parse(stored) as RecentSearch[];
       if (Array.isArray(parsed) && parsed.length) {
-        setRecentSearches(parsed.slice(0, 6));
+        setRecentSearches(uniqueRecentSearches(parsed));
       }
     } catch {
       window.localStorage.removeItem('beatz-recent-searches');
@@ -82,7 +103,7 @@ export default function SearchPage() {
       query: normalized,
       imageUrl: matchingTrack?.album?.images?.[0]?.url,
     };
-    const nextRecentSearches = [item, ...recentSearches.filter((recent) => recent.key !== item.key)].slice(0, 6);
+    const nextRecentSearches = uniqueRecentSearches([item, ...recentSearches.filter((recent) => recent.key !== item.key)]);
     setRecentSearches(nextRecentSearches);
     window.localStorage.setItem('beatz-recent-searches', JSON.stringify(nextRecentSearches));
   };
@@ -149,17 +170,35 @@ export default function SearchPage() {
                   <div className="divide-y divide-white/5">
                     {matchingTracks.map((track) => (
                       <div key={track.id} className="group flex items-center gap-3 rounded-lg px-3 py-2 transition hover:bg-white/5">
-                        <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-md bg-[#242424]">
+                        <div className="group/artwork relative h-12 w-12 shrink-0 overflow-hidden rounded-md bg-[#242424]">
                           <Music className="absolute inset-0 m-auto h-5 w-5 text-zinc-500" />
                           {track.album?.images?.[0]?.url && <img src={track.album.images[0].url} alt="" onError={(event) => { event.currentTarget.style.display = 'none'; }} className="relative h-full w-full object-cover" />}
+                          <button type="button" onClick={() => playTrack(track)} className="absolute inset-0 flex items-center justify-center bg-black/45 text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100" aria-label={`Play ${track.name}`} title="Play track">
+                            <Play className="ml-0.5 h-5 w-5 fill-current" />
+                          </button>
                         </div>
                         <button type="button" onClick={() => playTrack(track)} className="min-w-0 flex-1 text-left">
-                          <span className="block truncate text-sm font-medium text-white group-hover:text-spotify-green">{track.name}</span>
+                          <span className={`flex min-w-0 items-center gap-1.5 truncate text-sm font-medium transition ${isPlaying && currentTrack?.id === track.id ? 'text-spotify-green' : 'text-white group-hover:text-spotify-green'}`}>
+                            {isPlaying && currentTrack?.id === track.id && <Volume2 className="h-3.5 w-3.5 shrink-0" aria-label="Now playing" />}
+                            <span className="truncate">{track.name}</span>
+                          </span>
                           <span className="mt-1 block truncate text-xs text-spotify-subtext">{track.artists.map((artist) => artist.name).join(', ')} · {track.album.name}</span>
                         </button>
-                        <button type="button" onClick={() => handleAddToQueue(track)} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-zinc-400 transition hover:bg-spotify-green hover:text-black" aria-label={addedTrackIds[track.id] ? `${track.name} added` : `Add ${track.name} to queue`} title={addedTrackIds[track.id] ? 'Added to queue' : 'Add to queue'}>
-                          {addedTrackIds[track.id] ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-                        </button>
+                        <div className="relative flex shrink-0 items-center gap-2">
+                          <span className="min-w-10 shrink-0 text-right font-mono text-[11px] text-zinc-400">{formatDuration(track.durationMs)}</span>
+                          <button type="button" onClick={() => handleAddToQueue(track)} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-zinc-400 transition hover:bg-spotify-green hover:text-black" aria-label={addedTrackIds[track.id] ? `${track.name} added` : `Add ${track.name} to queue`} title={addedTrackIds[track.id] ? 'Added to queue' : 'Add to queue'}>
+                            {addedTrackIds[track.id] ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                          </button>
+                          <button type="button" onClick={() => setOpenTrackOptionsId((openId) => openId === track.id ? null : track.id)} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-zinc-400 transition hover:bg-white/10 hover:text-white" aria-label={`More options for ${track.name}`} aria-expanded={openTrackOptionsId === track.id} aria-controls={`track-options-${track.id}`} title="More options">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </button>
+                          {openTrackOptionsId === track.id && (
+                            <div id={`track-options-${track.id}`} className="absolute right-0 top-full z-20 mt-1 w-40 rounded-md border border-spotify-border bg-[#202020] p-1 shadow-xl" role="menu">
+                              <button type="button" role="menuitem" onClick={() => { playTrack(track); setOpenTrackOptionsId(null); }} className="w-full rounded px-3 py-2 text-left text-xs text-zinc-200 hover:bg-white/10">Play now</button>
+                              <button type="button" role="menuitem" onClick={() => { handleAddToQueue(track); setOpenTrackOptionsId(null); }} className="w-full rounded px-3 py-2 text-left text-xs text-zinc-200 hover:bg-white/10">Add to queue</button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -190,14 +229,13 @@ export default function SearchPage() {
                 <section className="mt-10 space-y-4">
                   <h2 className="text-xl font-bold text-white">Browse All</h2>
                   <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-4">
-                    {BROWSE_CATEGORIES.map((category, index) => {
-                      const track = MOCK_TRACKS[index % MOCK_TRACKS.length];
+                    {BROWSE_CATEGORIES.map((category) => {
                       return (
                         <button key={category.name} type="button" onClick={() => setQuery(category.name)} className={`group relative aspect-[1.18] min-h-40 overflow-hidden rounded-lg ${category.color} p-4 text-left transition duration-200 hover:brightness-110`}>
                           <span className="relative z-10 block max-w-[75%] text-lg font-bold leading-tight text-white">{category.name}</span>
                           <span className="absolute -bottom-2 -right-3 h-24 w-24 rotate-[18deg] overflow-hidden rounded-md bg-black/20 shadow-xl transition duration-300 group-hover:-translate-y-2 group-hover:-rotate-6">
                             <Music className="absolute inset-0 m-auto h-8 w-8 text-white/60" />
-                            {track.album?.images?.[0]?.url && <img src={track.album.images[0].url} alt="" onError={(event) => { event.currentTarget.style.display = 'none'; }} className="relative h-full w-full object-cover shadow-lg shadow-black/40" />}
+                            <img src={category.imageUrl} alt="" onError={(event) => { event.currentTarget.style.display = 'none'; }} className="relative h-full w-full object-cover shadow-lg shadow-black/40" />
                           </span>
                         </button>
                       );
