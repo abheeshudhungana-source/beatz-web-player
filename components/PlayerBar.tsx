@@ -198,11 +198,11 @@ export default function PlayerBar() {
 
       {/* Center: Transport Controls & Scrubber */}
       <div className="flex flex-col items-center gap-2 w-2/4 max-w-xl">
-        <div className="flex items-center gap-6 text-zinc-300">
+        <div className="flex items-center gap-2 text-zinc-300">
           <button
             type="button"
             onClick={toggleShuffle}
-            className={`transition hover:text-spotify-green ${isShuffleEnabled ? 'text-spotify-green' : 'text-zinc-400'}`}
+            className={`flex h-9 w-9 items-center justify-center transition hover:text-spotify-green ${isShuffleEnabled ? 'text-spotify-green' : 'text-zinc-400'}`}
             title={isShuffleEnabled ? 'Turn shuffle off' : 'Turn shuffle on'}
             aria-label={isShuffleEnabled ? 'Turn shuffle off' : 'Turn shuffle on'}
             aria-pressed={isShuffleEnabled}
@@ -213,7 +213,7 @@ export default function PlayerBar() {
           <button
             type="button"
             onClick={previousTrack}
-            className="text-zinc-400 transition hover:text-spotify-green disabled:opacity-40"
+            className="flex h-9 w-9 items-center justify-center text-zinc-400 transition hover:text-spotify-green disabled:opacity-40"
             title="Restart / Previous Track"
             aria-label="Restart or previous track"
           >
@@ -237,7 +237,7 @@ export default function PlayerBar() {
           <button
             type="button"
             onClick={nextTrack}
-            className="text-zinc-400 transition hover:text-spotify-green disabled:opacity-40"
+            className="flex h-9 w-9 items-center justify-center text-zinc-400 transition hover:text-spotify-green disabled:opacity-40"
             title="Next Track (Decoupled from ad penalties)"
             aria-label="Next track"
           >
@@ -247,7 +247,7 @@ export default function PlayerBar() {
           <button
             type="button"
             onClick={cycleRepeat}
-            className={`transition hover:text-spotify-green ${repeatMode > 0 ? 'text-spotify-green' : 'text-zinc-400'}`}
+            className={`flex h-9 w-9 items-center justify-center transition hover:text-spotify-green ${repeatMode > 0 ? 'text-spotify-green' : 'text-zinc-400'}`}
             title={repeatMode === 0 ? 'Turn repeat on' : repeatMode === 1 ? 'Repeat context' : 'Repeat current track'}
             aria-label={repeatMode === 0 ? 'Turn repeat on' : repeatMode === 1 ? 'Repeat context' : 'Repeat current track'}
             aria-pressed={repeatMode > 0}
@@ -269,7 +269,8 @@ export default function PlayerBar() {
               step="0.1"
               value={progressPercent}
               onChange={handleSeek}
-              className="w-full h-1 bg-spotify-elevated rounded-full appearance-none cursor-pointer accent-spotify-green group-hover:h-1.5 transition-all"
+              style={{ '--progress': `${progressPercent}%` } as React.CSSProperties}
+              className="slider-progress h-1 w-full cursor-pointer appearance-none rounded-full transition-all group-hover:h-1.5 [--slider-fill:#f5f5f5] hover:[--slider-fill:#1ed760] [&::-webkit-slider-runnable-track]:!bg-[linear-gradient(to_right,var(--slider-fill)_0,var(--slider-fill)_var(--progress),rgba(255,255,255,0.12)_var(--progress),rgba(255,255,255,0.12)_100%)] [&::-moz-range-progress]:!bg-[var(--slider-fill)]"
             />
           </div>
           <span className="text-[11px] font-mono text-zinc-400 w-9">
@@ -279,12 +280,12 @@ export default function PlayerBar() {
       </div>
 
       {/* Right: Volume & Drawer Toggles */}
-      <div className="flex items-center justify-end gap-4 w-1/4 min-w-[200px]">
+      <div className="flex flex-nowrap items-center justify-end gap-3 w-1/4 min-w-max">
         {/* Lyrics Toggle */}
         <button
           type="button"
           onClick={() => setIsLyricsOpen((open) => !open)}
-          className={`p-2 rounded-full transition ${
+          className={`shrink-0 rounded-full p-2 transition ${
             isLyricsOpen
               ? 'text-spotify-green bg-spotify-green/10'
               : 'text-zinc-400 hover:text-spotify-green hover:bg-spotify-elevated'
@@ -301,7 +302,7 @@ export default function PlayerBar() {
         <button
           type="button"
           onClick={toggleQueue}
-          className={`p-2 rounded-full transition flex items-center gap-1.5 ${
+          className={`flex shrink-0 items-center gap-1.5 rounded-full p-2 transition whitespace-nowrap ${
             isQueueOpen
               ? 'text-spotify-green bg-spotify-green/10'
               : 'text-zinc-400 hover:text-white hover:bg-spotify-elevated'
@@ -309,13 +310,13 @@ export default function PlayerBar() {
           title="Toggle Queue"
         >
           <ListMusic className="h-4 w-4" />
-          <span className="text-[11px] font-medium hidden sm:inline">Queue</span>
+          <span className="hidden whitespace-nowrap text-[11px] font-medium sm:inline">Queue</span>
         </button>
 
         {/* AI Chat Drawer Button */}
         <button
           onClick={toggleChat}
-          className={`p-2 rounded-full transition flex items-center gap-1.5 ${
+          className={`flex shrink-0 items-center gap-1.5 rounded-full p-2 transition whitespace-nowrap ${
             isChatOpen
               ? 'text-spotify-green bg-spotify-green/10'
               : 'text-zinc-400 hover:text-white hover:bg-spotify-elevated'
@@ -323,14 +324,14 @@ export default function PlayerBar() {
           title="Toggle Beatz AI Co-Pilot"
         >
           <MessageSquare className="h-4 w-4" />
-          <span className="text-[11px] font-medium hidden sm:inline">Beatz AI</span>
+          <span className="hidden whitespace-nowrap text-[11px] font-medium sm:inline">Beatz AI</span>
         </button>
 
         {/* Volume Controls */}
-        <div className="flex items-center gap-2 pl-2 border-l border-spotify-border">
+        <div className="flex shrink-0 items-center gap-2">
           <button
             onClick={() => setVolume(volume > 0 ? 0 : 0.8)}
-            className="text-zinc-400 hover:text-white transition"
+            className="shrink-0 text-zinc-400 transition hover:text-white"
           >
             {volume === 0 ? (
               <VolumeX className="h-4 w-4" />
@@ -345,17 +346,18 @@ export default function PlayerBar() {
             step="0.05"
             value={volume}
             onChange={(e) => setVolume(parseFloat(e.target.value))}
-            className="w-16 h-1 bg-spotify-elevated rounded-full appearance-none cursor-pointer accent-spotify-green"
+            style={{ '--progress': `${volume * 100}%` } as React.CSSProperties}
+            className="h-1 w-16 shrink-0 cursor-pointer appearance-none rounded-full [--slider-fill:#f5f5f5] hover:[--slider-fill:#1ed760] [&::-webkit-slider-runnable-track]:!bg-[linear-gradient(to_right,var(--slider-fill)_0,var(--slider-fill)_var(--progress),rgba(255,255,255,0.12)_var(--progress),rgba(255,255,255,0.12)_100%)] [&::-moz-range-progress]:!bg-[var(--slider-fill)]"
           />
         </div>
 
         {/* Active Device Indicator */}
         <div
           title={isSdkActive ? 'Active: Beatz Web Player (Official Spotify SDK)' : 'Audio Preview Mode (Spotify Free)'}
-          className="flex items-center gap-1.5 pl-2 text-zinc-400 border-l border-spotify-border/60"
+          className="flex shrink-0 items-center gap-1.5 whitespace-nowrap text-zinc-400"
         >
-          <Laptop2 className={`h-4 w-4 transition ${isSdkActive ? 'text-spotify-green' : 'text-zinc-500'}`} />
-          <span className={`text-[10px] font-mono hidden xl:inline ${isSdkActive ? 'text-spotify-green' : 'text-zinc-500'}`}>
+          <Laptop2 className={`h-4 w-4 shrink-0 transition ${isSdkActive ? 'text-spotify-green' : 'text-zinc-500'}`} />
+          <span className={`hidden whitespace-nowrap text-[10px] font-mono xl:inline ${isSdkActive ? 'text-spotify-green' : 'text-zinc-500'}`}>
             {isSdkActive ? 'SDK Online' : 'Preview'}
           </span>
         </div>
