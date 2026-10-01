@@ -639,20 +639,24 @@ export default function Home() {
         <section className="space-y-4">
           <h2 className="text-xl font-bold text-white">Your Top Artists</h2>
           <div className="no-scrollbar flex gap-5 overflow-x-auto scroll-smooth pb-2">
-            {topArtists.map(({ artist, track, cardId }) => (
-              <button
-                key={cardId}
-                type="button"
-                onClick={() => playTrack(track)}
-                className="group flex w-32 shrink-0 flex-col items-center text-center"
-                aria-label={`Play ${artist.name}`}
-              >
-                <span className="aspect-square w-full overflow-hidden rounded-full bg-spotify-elevated shadow-lg shadow-black/20 ring-1 ring-white/10 transition group-hover:ring-spotify-green/70">
-                  <ArtworkImage src={artist.images?.[0]?.url} alt={artist.name} className="h-full w-full rounded-full object-cover transition duration-300 group-hover:scale-105" />
-                </span>
-                <span className="mt-3 w-full truncate text-sm font-medium text-white group-hover:text-spotify-green">{artist.name}</span>
-              </button>
-            ))}
+            {topArtists.map(({ artist, track, cardId }) => {
+              const artistImageUrl = artist.images?.[0]?.url ?? track.album?.images?.[0]?.url;
+
+              return (
+                <button
+                  key={cardId}
+                  type="button"
+                  onClick={() => playTrack(track)}
+                  className="group flex w-32 shrink-0 flex-col items-center text-center"
+                  aria-label={`Play ${artist.name}`}
+                >
+                  <span className="aspect-square w-full overflow-hidden rounded-full bg-spotify-elevated shadow-lg shadow-black/20 ring-1 ring-white/10 transition group-hover:ring-spotify-green/70">
+                    <ArtworkImage src={artistImageUrl} alt={artist.name} className="h-full w-full rounded-full object-cover transition duration-300 group-hover:scale-105" />
+                  </span>
+                  <span className="mt-3 w-full truncate text-sm font-medium text-white group-hover:text-spotify-green">{artist.name}</span>
+                </button>
+              );
+            })}
           </div>
         </section>
 

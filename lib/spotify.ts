@@ -42,7 +42,12 @@ export const MOCK_TRACKS: SpotifyTrack[] = [
     uri: 'spotify:track:4cOdK2wGLETKBW3PvgPWqT',
     name: 'Never Gonna Give You Up',
     durationMs: 213573,
-    artists: [{ id: '0gxyHStUvyUt4ReWW1hDOv', name: 'Rick Astley', uri: 'spotify:artist:0gxyHStUvyUt4ReWW1hDOv' }],
+    artists: [{
+      id: '0gxyHStUvyUt4ReWW1hDOv',
+      name: 'Rick Astley',
+      uri: 'spotify:artist:0gxyHStUvyUt4ReWW1hDOv',
+      images: [{ url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=300&h=300&fit=crop', height: 300, width: 300 }],
+    }],
     album: {
       id: '50ZZv3e6n9R086eJ6N05Yn',
       name: 'Whenever You Need Somebody',
@@ -58,7 +63,12 @@ export const MOCK_TRACKS: SpotifyTrack[] = [
     uri: 'spotify:track:0VjIjW4GlUZAMYd2vXMi3b',
     name: 'Blinding Lights',
     durationMs: 200040,
-    artists: [{ id: '1Xyo4u8uXC1ZmMpatF05PJ', name: 'The Weeknd', uri: 'spotify:artist:1Xyo4u8uXC1ZmMpatF05PJ' }],
+    artists: [{
+      id: '1Xyo4u8uXC1ZmMpatF05PJ',
+      name: 'The Weeknd',
+      uri: 'spotify:artist:1Xyo4u8uXC1ZmMpatF05PJ',
+      images: [{ url: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=300&h=300&fit=crop', height: 300, width: 300 }],
+    }],
     album: {
       id: '4yP0hdKOJ9vRAx08ag48yb',
       name: 'After Hours',
@@ -74,7 +84,12 @@ export const MOCK_TRACKS: SpotifyTrack[] = [
     uri: 'spotify:track:3n3Ppam7vgaVa1iaRUc9Lp',
     name: 'Midnight City',
     durationMs: 243264,
-    artists: [{ id: '63YrHGBh2vTdl5alGiHRBi', name: 'M83', uri: 'spotify:artist:63YrHGBh2vTdl5alGiHRBi' }],
+    artists: [{
+      id: '63YrHGBh2vTdl5alGiHRBi',
+      name: 'M83',
+      uri: 'spotify:artist:63YrHGBh2vTdl5alGiHRBi',
+      images: [{ url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=300&h=300&fit=crop', height: 300, width: 300 }],
+    }],
     album: {
       id: '6AamvwB832uPz9e8u6G4aQ',
       name: 'Hurry Up, We\'re Dreaming',
@@ -91,8 +106,18 @@ export const MOCK_TRACKS: SpotifyTrack[] = [
     name: 'Stay',
     durationMs: 141805,
     artists: [
-      { id: '2tIP7wuaVjypo8uaKKu0e3', name: 'The Kid LAROI', uri: 'spotify:artist:2tIP7wuaVjypo8uaKKu0e3' },
-      { id: '1uNFoZAHBGtllmzznpCI3s', name: 'Justin Bieber', uri: 'spotify:artist:1uNFoZAHBGtllmzznpCI3s' },
+      {
+        id: '2tIP7wuaVjypo8uaKKu0e3',
+        name: 'The Kid LAROI',
+        uri: 'spotify:artist:2tIP7wuaVjypo8uaKKu0e3',
+        images: [{ url: 'https://images.unsplash.com/photo-1504593811423-6dd665756598?w=300&h=300&fit=crop', height: 300, width: 300 }],
+      },
+      {
+        id: '1uNFoZAHBGtllmzznpCI3s',
+        name: 'Justin Bieber',
+        uri: 'spotify:artist:1uNFoZAHBGtllmzznpCI3s',
+        images: [{ url: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=300&h=300&fit=crop', height: 300, width: 300 }],
+      },
     ],
     album: {
       id: '4qZNW3VpD95zS9eM5Vv1t9',
@@ -109,7 +134,12 @@ export const MOCK_TRACKS: SpotifyTrack[] = [
     uri: 'spotify:track:7qiZfU4dY1lWllzX7mPBI3',
     name: 'Shape of You',
     durationMs: 233712,
-    artists: [{ id: '6eUKZXaKkcviH0Ku9w2n3V', name: 'Ed Sheeran', uri: 'spotify:artist:6eUKZXaKkcviH0Ku9w2n3V' }],
+    artists: [{
+      id: '6eUKZXaKkcviH0Ku9w2n3V',
+      name: 'Ed Sheeran',
+      uri: 'spotify:artist:6eUKZXaKkcviH0Ku9w2n3V',
+      images: [{ url: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=300&h=300&fit=crop', height: 300, width: 300 }],
+    }],
     album: {
       id: '3T4tUhGYe2VJn7LJb0v977',
       name: '÷ (Divide)',
