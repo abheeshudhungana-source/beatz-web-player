@@ -138,6 +138,11 @@ export function QueueDrawer(props: QueueDrawerProps = {}) {
                 </button>
               </div>
             </div>
+            {isSdkActive && (
+              <p className="text-[11px] leading-relaxed text-zinc-500">
+                Removing hides a track from this list. Spotify may still play it because its queue API does not support individual removal.
+              </p>
+            )}
 
             {storeQueue.upcomingTracks.length === 0 ? (
               <div className="py-12 text-center text-xs text-zinc-500">
@@ -204,9 +209,8 @@ export function QueueDrawer(props: QueueDrawerProps = {}) {
                         <button
                           type="button"
                           onClick={() => removeFromQueue(track.id)}
-                          disabled={isSdkActive}
-                          className="p-1 text-zinc-400 opacity-0 transition group-hover:opacity-100 hover:text-red-400 disabled:cursor-not-allowed disabled:hover:text-zinc-400"
-                          title={isSdkActive ? 'Spotify does not allow removing individual live queue tracks' : 'Remove from Queue'}
+                          className="p-1 text-zinc-400 opacity-0 transition group-hover:opacity-100 hover:text-red-400"
+                          title={isSdkActive ? 'Remove from Beatz queue list' : 'Remove from Queue'}
                           aria-label={`Remove ${track.name} from queue`}
                         >
                           <Trash2 className="h-3.5 w-3.5" />

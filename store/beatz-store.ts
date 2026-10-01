@@ -46,6 +46,7 @@ interface BeatzStore {
   adState: AdBreakState;
   isQueueOpen: boolean;
   isChatOpen: boolean;
+  removedQueueTrackIds: string[];
 
   // Spotify Web Playback SDK device bridge
   sdkDeviceId: string | null;
@@ -118,6 +119,7 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
   adState: initialAdState,
   isQueueOpen: false,
   isChatOpen: false,
+  removedQueueTrackIds: [],
 
   sdkDeviceId: null,
   isSdkActive: false,
@@ -181,13 +183,18 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
         ? previousTrack
         : input.currentlyPlaying;
       const trackChanged = currentTrack?.id !== previousTrack?.id;
+      const incomingTrackIds = new Set(input.upcomingTracks.map((track) => track.id));
+      const removedQueueTrackIds = get().removedQueueTrackIds.filter((trackId) => incomingTrackIds.has(trackId));
+      const removedTrackIds = new Set(removedQueueTrackIds);
 
       set({
         queue: {
           ...input,
-          upcomingTracks: getUpcomingQueueAfterCurrent(currentTrack, input.upcomingTracks),
+          upcomingTracks: getUpcomingQueueAfterCurrent(currentTrack, input.upcomingTracks)
+            .filter((track) => !removedTrackIds.has(track.id)),
         },
         currentTrack,
+        removedQueueTrackIds,
         ...(trackChanged ? { durationMs: currentTrack?.durationMs ?? 0, progressMs: 0 } : {}),
       });
     }
@@ -204,6 +211,7 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
         ...state.queue,
         upcomingTracks: getUpcomingQueueAfterCurrent(state.currentTrack, [...state.queue.upcomingTracks, track]),
       },
+      removedQueueTrackIds: state.removedQueueTrackIds.filter((trackId) => trackId !== track.id),
     }));
 
     if (get().isSdkActive) {
@@ -231,6 +239,9 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
         ...state.queue,
         upcomingTracks: [...state.queue.upcomingTracks, ...newTracks],
       },
+      removedQueueTrackIds: state.removedQueueTrackIds.filter(
+        (trackId) => !newTracks.some((track) => track.id === trackId)
+      ),
     }));
 
     if (get().isSdkActive) {
@@ -246,6 +257,9 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
         ...state.queue,
         upcomingTracks: state.queue.upcomingTracks.filter((t) => t.id !== trackId),
       },
+      removedQueueTrackIds: state.removedQueueTrackIds.includes(trackId)
+        ? state.removedQueueTrackIds
+        : [...state.removedQueueTrackIds, trackId],
     })),
 
   clearQueue: () =>
@@ -275,6 +289,9 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
         currentlyPlaying: first,
         upcomingTracks: rest,
       },
+      removedQueueTrackIds: state.removedQueueTrackIds.filter(
+        (trackId) => !uniqueTracks.some((track) => track.id === trackId)
+      ),
     }));
     get().playTrack(first);
 
