@@ -3,9 +3,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSpotifyAuth } from '@/hooks/useSpotifyAuth';
-import { useSpotifyPlayer } from '@/hooks/useSpotifyPlayer';
-import { QueueDrawer } from '@/components/QueueDrawer';
-import BeatzChatDrawer from '@/components/BeatzChatDrawer';
 import { useBeatzStore } from '@/store/beatz-store';
 import { MOCK_TRACKS } from '@/lib/spotify';
 import {
@@ -134,12 +131,6 @@ export default function Home() {
     images: [],
   };
 
-  // Mount the official Spotify Web Playback SDK streaming engine
-  useSpotifyPlayer({
-    accessToken,
-    enabled: isAuthenticated,
-  });
-
   const isSdkActive = useBeatzStore((state) => state.isSdkActive);
   const sdkError = useBeatzStore((state) => state.sdkError);
 
@@ -179,15 +170,6 @@ export default function Home() {
     setAddedTrackId(track.id);
     setTimeout(() => setAddedTrackId(null), 1500);
   };
-
-  // Tick the player time forward every second
-  useEffect(() => {
-    const interval = setInterval(() => {
-      tickPlayer();
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [tickPlayer]);
 
   // Predictable ad pacing simulator (3–5 breaks per hour)
   useEffect(() => {
@@ -754,202 +736,6 @@ export default function Home() {
         </div>
       </aside>
 
-      {/* Sticky Bottom Player Bar */}
-      <footer className="flex h-24 shrink-0 items-center justify-between border-t border-spotify-border bg-spotify-surface px-6 text-xs text-spotify-subtext z-20">
-        <div className="flex min-w-0 items-center gap-3 w-[22%]">
-          <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-lg border border-white/10 bg-spotify-elevated text-zinc-300 shadow-sm shadow-black/20">
-            {currentTrack?.album?.images?.[0]?.url ? (
-              <img src={currentTrack.album.images[0].url} alt={currentTrack.name} className="h-full w-full object-cover" referrerPolicy="no-referrer" />
-            ) : (
-              <Music className="h-6 w-6 text-spotify-green" />
-            )}
-          </div>
-          <div className="flex min-w-0 items-center gap-2 self-center">
-            <div className="min-w-0">
-              <p className="truncate font-semibold text-white text-sm">{nowPlaying.title}</p>
-              <p className="truncate text-[11px] text-spotify-subtext">{nowPlaying.artist}</p>
-            </div>
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setIsTrackOptionsOpen((open) => !open)}
-                className="rounded-full p-1.5 text-zinc-400 transition hover:bg-spotify-elevated hover:text-white"
-                title="Track options"
-                aria-label="Track options"
-                aria-expanded={isTrackOptionsOpen}
-              >
-                <MoreHorizontal className="h-4 w-4" />
-              </button>
-              {isTrackOptionsOpen && (
-                <div className="absolute bottom-full left-0 z-30 mb-2 w-44 rounded-lg border border-spotify-border bg-[#202020] p-1 shadow-xl shadow-black/40" role="menu">
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => void handleShareTrack()}
-                    className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-xs text-zinc-200 transition hover:bg-white/10"
-                  >
-                    <Share2 className="h-3.5 w-3.5" />
-                    Share track
-                  </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => void handleCopyTrackDetails()}
-                    className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-xs text-zinc-200 transition hover:bg-white/10"
-                  >
-                    <Copy className="h-3.5 w-3.5" />
-                    Copy track details
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="flex w-[52%] max-w-[620px] flex-col items-center gap-1.5 px-6">
-          <div className="flex items-center gap-5 text-zinc-300">
-            <button
-              type="button"
-              onClick={toggleShuffle}
-              className={`transition hover:text-white ${isShuffleEnabled ? 'text-spotify-green' : ''}`}
-              title={isShuffleEnabled ? 'Turn shuffle off' : 'Turn shuffle on'}
-              aria-label={isShuffleEnabled ? 'Turn shuffle off' : 'Turn shuffle on'}
-              aria-pressed={isShuffleEnabled}
-            >
-              <Shuffle className="h-4 w-4" />
-            </button>
-            <button
-              onClick={previousTrack}
-              className="transition hover:text-white"
-              title="Previous"
-            >
-              <SkipBack className="h-4 w-4" />
-            </button>
-
-            <button
-              onClick={() => (adState.isAdPlaying ? finishAdBreak() : togglePlay())}
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-black transition hover:scale-105 active:scale-95 shadow-md shadow-white/10"
-              title={isPlaying ? 'Pause' : 'Play'}
-            >
-              {isPlaying ? (
-                <Pause className="h-4 w-4 fill-current" />
-              ) : (
-                <Play className="h-4 w-4 fill-current ml-0.5" />
-              )}
-            </button>
-
-            <button
-              onClick={nextTrack}
-              className="transition hover:text-white"
-              title="Next (Decoupled from ads)"
-            >
-              <SkipForward className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={cycleRepeat}
-              className={`relative transition hover:text-white ${repeatMode > 0 ? 'text-spotify-green' : ''}`}
-              title={repeatMode === 0 ? 'Turn repeat on' : repeatMode === 1 ? 'Repeat current track' : 'Turn repeat off'}
-              aria-label={repeatMode === 0 ? 'Turn repeat on' : repeatMode === 1 ? 'Repeat current track' : 'Turn repeat off'}
-              aria-pressed={repeatMode > 0}
-            >
-              {repeatMode === 2 ? <Repeat1 className="h-4 w-4" /> : <Repeat className="h-4 w-4" />}
-            </button>
-          </div>
-
-          <div className="flex items-center gap-3 w-full">
-            <span className="text-[11px] font-mono text-zinc-400 w-8 text-right">
-              {currentProgressLabel}
-            </span>
-            <div className="relative flex-1">
-              <input
-                type="range"
-                min={0}
-                max={100}
-                step={0.1}
-                value={progressPercent}
-                onChange={handleSeek}
-                style={{ ['--progress' as any]: `${progressPercent}%` }}
-                className="slider-progress h-1.5 w-full cursor-pointer appearance-none rounded-full bg-spotify-elevated"
-                aria-label="Seek through current track"
-              />
-            </div>
-            <span className="text-[11px] font-mono text-zinc-400 w-8">
-              {durationLabel}
-            </span>
-          </div>
-        </div>
-
-        <div className="flex items-center justify-end gap-2 w-[22%]">
-          <button
-            type="button"
-            onClick={() => setIsLyricsOpen((open) => !open)}
-            className={`rounded-full p-2 transition hover:bg-spotify-elevated hover:text-white ${isLyricsOpen ? 'bg-spotify-green/10 text-spotify-green' : 'text-zinc-400'}`}
-            title={isLyricsOpen ? 'Close lyrics' : 'Open lyrics'}
-            aria-label={isLyricsOpen ? 'Close lyrics' : 'Open lyrics'}
-            aria-pressed={isLyricsOpen}
-            aria-controls="lyrics-panel"
-          >
-            <Mic2 className="h-4 w-4" />
-          </button>
-          <div className="flex items-center gap-1 rounded-full bg-spotify-elevated px-1.5 py-1 text-zinc-200">
-            <button
-              type="button"
-              onClick={handleToggleMute}
-              className="flex items-center justify-center text-zinc-300 transition hover:text-white"
-              aria-label={volume === 0 ? 'Unmute audio' : 'Mute audio'}
-              title={volume === 0 ? 'Unmute' : 'Mute'}
-            >
-              {volume === 0 ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-            </button>
-            <input
-              type="range"
-              min={0}
-              max={1}
-              step={0.01}
-              value={volume}
-              onChange={(e) => {
-                const nextVolume = Number(e.target.value);
-                if (nextVolume > 0) {
-                  lastVolumeRef.current = nextVolume;
-                }
-                setVolume(nextVolume);
-              }}
-              style={{ ['--progress' as any]: `${volume * 100}%` }}
-              className="w-14 accent-spotify-green cursor-pointer"
-              aria-label="Volume control"
-            />
-          </div>
-
-          <button
-            onClick={() => setChatOpen(true)}
-            className="flex items-center gap-1.5 rounded-full bg-spotify-green/10 border border-spotify-green/30 px-2 py-1.5 text-[11px] font-semibold text-spotify-green hover:bg-spotify-green hover:text-black transition shadow-sm"
-            title="Open Beatz AI Co-Pilot"
-          >
-            <Sparkles className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Beatz AI</span>
-          </button>
-
-          <button
-            onClick={() => setQueueOpen(true)}
-            className="rounded-full bg-spotify-elevated px-2 py-1.5 text-[11px] font-medium text-spotify-green hover:bg-spotify-green hover:text-black transition"
-          >
-            Queue
-          </button>
-        </div>
-      </footer>
-
-      {/* Slide-Over Queue Drawer */}
-      <QueueDrawer
-        isOpen={isQueueOpen}
-        onClose={() => setQueueOpen(false)}
-      />
-
-      {/* Slide-Over Beatz AI Co-Pilot Chat Drawer */}
-      <BeatzChatDrawer
-        isOpen={isChatOpen}
-        onClose={() => setChatOpen(false)}
-      />
     </div>
   );
 }

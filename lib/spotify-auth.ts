@@ -150,12 +150,15 @@ export async function getValidAccessToken(): Promise<string | null> {
 
     if (isExpired && refreshToken) {
       const refreshed = await refreshAccessToken(refreshToken);
-      if (refreshed.access_token) {
-        accessToken = refreshed.access_token;
+      const refreshedAccessToken = typeof refreshed.access_token === 'string' ? refreshed.access_token : null;
+
+      if (refreshedAccessToken) {
+        const tokenToStore = refreshedAccessToken;
+        accessToken = tokenToStore;
         const newExpiresAt = Date.now() + refreshed.expires_in * 1000;
 
         try {
-          cookieStore.set('spotify_access_token', accessToken, {
+          cookieStore.set('spotify_access_token', tokenToStore, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'lax',

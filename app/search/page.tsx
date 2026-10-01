@@ -3,13 +3,9 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSpotifyAuth } from '@/hooks/useSpotifyAuth';
-import { useSpotifyPlayer } from '@/hooks/useSpotifyPlayer';
 import { useSpotifySearch } from '@/hooks/useSpotifySearch';
 import { MOCK_TRACKS } from '@/lib/spotify';
 import { useBeatzStore } from '@/store/beatz-store';
-import { QueueDrawer } from '@/components/QueueDrawer';
-import BeatzChatDrawer from '@/components/BeatzChatDrawer';
-import PlayerBar from '@/components/PlayerBar';
 import { Check, House, Loader2, Music, Play, Plus, Search } from 'lucide-react';
 import type { SpotifyTrack } from '@/types/spotify';
 
@@ -49,18 +45,8 @@ export default function SearchPage() {
   const { query, setQuery, results, isSearching } = useSpotifySearch();
   const addToQueue = useBeatzStore((state) => state.addToQueue);
   const playTrack = useBeatzStore((state) => state.playTrack);
-  const tickPlayer = useBeatzStore((state) => state.tickPlayer);
-  const isChatOpen = useBeatzStore((state) => state.isChatOpen);
-  const setChatOpen = useBeatzStore((state) => state.setChatOpen);
   const [recentSearches, setRecentSearches] = useState(() => makeRecentSearches(MOCK_TRACKS));
   const [addedTrackIds, setAddedTrackIds] = useState<Record<string, boolean>>({});
-
-  useSpotifyPlayer({ accessToken, enabled: isAuthenticated });
-
-  useEffect(() => {
-    const interval = window.setInterval(tickPlayer, 1000);
-    return () => window.clearInterval(interval);
-  }, [tickPlayer]);
 
   useEffect(() => {
     const stored = window.localStorage.getItem('beatz-recent-searches');
@@ -228,9 +214,6 @@ export default function SearchPage() {
         </main>
       </div>
 
-      <PlayerBar />
-      <QueueDrawer />
-      <BeatzChatDrawer isOpen={isChatOpen} onClose={() => setChatOpen(false)} />
     </div>
   );
 }
