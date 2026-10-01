@@ -581,7 +581,7 @@ export default function Home() {
             </button>
           </div>
 
-          <div className="space-y-10 p-6 lg:space-y-12 lg:p-8">
+          <div className="space-y-10 p-6 pb-32 lg:space-y-12 lg:p-8 lg:pb-32">
         {adState.isAdPlaying && (
           <div className="rounded-2xl border border-rose-500/40 bg-rose-500/10 p-4 shadow-lg shadow-rose-950/20 animate-in fade-in">
             <div className="flex items-center justify-between gap-4">
