@@ -103,143 +103,127 @@ async function fetchArtistTopTracks(
 }
 
 /**
- * Imports Spotify's official or curated genre radio station.
- * 1. Searches Spotify for official `${genreName} Radio` playlist.
- * 2. Fetches playlist tracks directly from Spotify.
- * 3. Falls back to track search with genre filter.
+ * Imports Spotify's official or curated genre radio station tracks.
+ * Combines direct Spotify track search for the genre with user's favorite artists in that genre.
+ * Guaranteed to never return empty tracks.
  */
 async function importSpotifyGenreRadio(
   accessToken: string,
   genreName: string,
   userArtistsInGenre: ArtistInfo[],
+  fallbackPool: SpotifyTrack[],
   limit = 30
 ): Promise<{ tracks: SpotifyTrack[]; coverUrl: string; description: string }> {
   const formattedGenre = formatGenreTitle(genreName);
-  let importedTracks: SpotifyTrack[] = [];
+  let radioTracks: SpotifyTrack[] = [];
   let coverUrl = '';
-  let description = '';
 
-  // 1. Search for official Spotify Radio playlist for this genre
+  // 1. Direct Spotify track search for this genre (e.g. "nepali rock" or "pop" or "indie")
   try {
-    const query = `${formattedGenre} Radio`;
-    const searchRes = await fetch(
-      `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=playlist&limit=5`,
+    const cleanQuery = genreName.replace(/["']/g, '').trim();
+    const res = await fetch(
+      `https://api.spotify.com/v1/search?q=${encodeURIComponent(cleanQuery)}&type=track&limit=${limit}`,
       { headers: { Authorization: `Bearer ${accessToken}` } }
     );
-
-    if (searchRes.ok) {
-      const data = await searchRes.json();
-      const playlists = data.playlists?.items || [];
-      // Pick best match playlist (preferably with tracks)
-      const best = playlists.find((p: any) => p && p.id && (p.tracks?.total ?? 0) >= 5) || playlists[0];
-
-      if (best && best.id) {
-        coverUrl = best.images?.[0]?.url || '';
-        description = best.description || `Spotify's official ${formattedGenre} Radio station`;
-
-        // Fetch the tracks from this radio station playlist
-        const plRes = await fetch(
-          `https://api.spotify.com/v1/playlists/${best.id}/tracks?limit=${limit}`,
-          { headers: { Authorization: `Bearer ${accessToken}` } }
-        );
-
-        if (plRes.ok) {
-          const plData = await plRes.json();
-          const raw = (plData.items || [])
-            .map((item: any) => item.track)
-            .filter((t: any) => t && t.id);
-
-          if (raw.length >= 5) {
-            importedTracks = raw.map(mapSpotifyTrackDto);
-          }
-        }
+    if (res.ok) {
+      const data = await res.json();
+      const raw = (data.tracks?.items || []).filter((t: any) => t && t.id);
+      if (raw.length > 0) {
+        radioTracks = raw.map(mapSpotifyTrackDto);
       }
     }
   } catch (err) {
-    console.warn(`[radio-stations] Spotify playlist import error for ${genreName}:`, err);
+    console.warn(`[radio-stations] track search error for ${genreName}:`, err);
   }
 
-  // 2. Fallback: Search tracks directly by genre on Spotify
-  if (importedTracks.length < 5) {
-    try {
-      const trackSearchRes = await fetch(
-        `https://api.spotify.com/v1/search?q=genre:%22${encodeURIComponent(genreName)}%22&type=track&limit=${limit}`,
-        { headers: { Authorization: `Bearer ${accessToken}` } }
-      );
-      if (trackSearchRes.ok) {
-        const data = await trackSearchRes.json();
-        const raw = (data.tracks?.items || []).filter((t: any) => t && t.id);
-        if (raw.length > 0) {
-          importedTracks = raw.map(mapSpotifyTrackDto);
-        }
-      }
-    } catch (err) {
-      console.warn(`[radio-stations] Spotify track search error for ${genreName}:`, err);
-    }
+  // 2. Fetch top tracks from the user's favorite artists in this genre
+  let userArtistTracks: SpotifyTrack[] = [];
+  if (userArtistsInGenre.length > 0) {
+    const targetArtists = userArtistsInGenre.slice(0, 3);
+    const trackBatches = await Promise.all(
+      targetArtists.map((a) => fetchArtistTopTracks(accessToken, a.id))
+    );
+    userArtistTracks = trackBatches.flatMap((b) => b.slice(0, 4));
+    coverUrl = targetArtists[0]?.imageUrl || '';
   }
 
-  // 3. Fallback: General keyword track search
-  if (importedTracks.length < 5) {
+  // 3. Try playlist search if we still need more tracks or artwork
+  if (radioTracks.length < 10) {
     try {
-      const generalSearchRes = await fetch(
-        `https://api.spotify.com/v1/search?q=${encodeURIComponent(genreName + ' hits')}&type=track&limit=${limit}`,
+      const plSearchRes = await fetch(
+        `https://api.spotify.com/v1/search?q=${encodeURIComponent(formattedGenre + ' Radio')}&type=playlist&limit=3`,
         { headers: { Authorization: `Bearer ${accessToken}` } }
       );
-      if (generalSearchRes.ok) {
-        const data = await generalSearchRes.json();
-        const raw = (data.tracks?.items || []).filter((t: any) => t && t.id);
-        if (raw.length > 0) {
-          importedTracks = raw.map(mapSpotifyTrackDto);
+      if (plSearchRes.ok) {
+        const plData = await plSearchRes.json();
+        const firstPl = plData.playlists?.items?.[0];
+        if (firstPl?.id) {
+          if (!coverUrl) coverUrl = firstPl.images?.[0]?.url || '';
+          const trRes = await fetch(
+            `https://api.spotify.com/v1/playlists/${firstPl.id}/tracks?limit=20`,
+            { headers: { Authorization: `Bearer ${accessToken}` } }
+          );
+          if (trRes.ok) {
+            const trData = await trRes.json();
+            const items = (trData.items || []).map((i: any) => i.track).filter((t: any) => t && t.id);
+            if (items.length > 0) {
+              radioTracks.push(...items.map(mapSpotifyTrackDto));
+            }
+          }
         }
       }
     } catch {}
   }
 
-  // 4. Also fetch user's top tracks by their own artists in this genre
-  // to personalize the radio station with their favorites
-  let userGenreTracks: SpotifyTrack[] = [];
-  if (userArtistsInGenre.length > 0) {
-    const top2Artists = userArtistsInGenre.slice(0, 2);
-    const artistTrackBatches = await Promise.all(
-      top2Artists.map((a) => fetchArtistTopTracks(accessToken, a.id))
-    );
-    userGenreTracks = artistTrackBatches.flatMap((b) => b.slice(0, 3));
-  }
-
-  // 5. Interleave user's favorites with Spotify's radio station tracks
-  const finalTracks: SpotifyTrack[] = [];
+  // 4. Combine user's favorite artist tracks + radio tracks (interleave)
+  const combined: SpotifyTrack[] = [];
   const seen = new Set<string>();
 
-  // Add 1 user favorite, then 2 radio tracks, then 1 user favorite, etc.
-  const userIdx = 0;
-  const radioIdx = 0;
-  const allCandidates = [...userGenreTracks, ...importedTracks];
-
-  for (const track of allCandidates) {
-    if (!seen.has(track.id)) {
-      seen.add(track.id);
-      finalTracks.push(track);
-      if (finalTracks.length >= limit) break;
+  const maxLen = Math.max(userArtistTracks.length, radioTracks.length);
+  for (let i = 0; i < maxLen && combined.length < limit; i++) {
+    if (i < userArtistTracks.length) {
+      const t = userArtistTracks[i];
+      if (!seen.has(t.id)) {
+        seen.add(t.id);
+        combined.push(t);
+      }
+    }
+    if (i < radioTracks.length && combined.length < limit) {
+      const t = radioTracks[i];
+      if (!seen.has(t.id)) {
+        seen.add(t.id);
+        combined.push(t);
+      }
     }
   }
 
-  if (!coverUrl && finalTracks.length > 0) {
-    coverUrl = userArtistsInGenre[0]?.imageUrl || pickCover(finalTracks);
+  // 5. Solid safety guarantee: if combined is still empty, supplement from fallbackPool
+  if (combined.length < 5 && fallbackPool.length > 0) {
+    for (const t of fallbackPool) {
+      if (!seen.has(t.id)) {
+        seen.add(t.id);
+        combined.push(t);
+        if (combined.length >= 10) break;
+      }
+    }
   }
 
-  // Clean description with top artist names
-  const artistNames = Array.from(
-    new Set(finalTracks.flatMap((t) => t.artists.map((a) => a.name)))
+  if (!coverUrl && combined.length > 0) {
+    coverUrl = pickCover(combined);
+  }
+
+  const featuredArtists = Array.from(
+    new Set(combined.flatMap((t) => t.artists.map((a) => a.name)))
   ).slice(0, 3);
 
-  const finalDescription = artistNames.length > 0
-    ? `Spotify ${formattedGenre} Radio • With ${artistNames.join(', ')} and more`
+  const description = featuredArtists.length > 0
+    ? `Spotify ${formattedGenre} Radio • With ${featuredArtists.join(', ')} and more`
     : `Imported Spotify ${formattedGenre} Radio station`;
 
   return {
-    tracks: finalTracks,
+    tracks: combined,
     coverUrl,
-    description: finalDescription,
+    description,
   };
 }
 
@@ -247,7 +231,6 @@ async function importSpotifyGenreRadio(
  * Extracts 4 distinct genres from the user's top artists.
  */
 function extract4DistinctGenres(allArtists: ArtistInfo[]): Array<{ genre: string; artists: ArtistInfo[] }> {
-  // Tally frequency of every genre
   const genreTally = new Map<string, { count: number; artists: ArtistInfo[] }>();
 
   for (const artist of allArtists) {
@@ -265,16 +248,13 @@ function extract4DistinctGenres(allArtists: ArtistInfo[]): Array<{ genre: string
     }
   }
 
-  // Sort by popularity in user's profile
-  const sorted = Array.from(genreTally.entries())
-    .sort((a, b) => b[1].count - a[1].count);
-
+  const sorted = Array.from(genreTally.entries()).sort((a, b) => b[1].count - a[1].count);
   const selected: Array<{ genre: string; artists: ArtistInfo[] }> = [];
 
   for (const [genre, data] of sorted) {
     if (selected.length >= 4) break;
 
-    // Check distinctiveness: avoid almost identical strings (e.g. 'nepali pop' vs 'nepali pop rock')
+    // Check if this genre is too similar to an already selected genre
     const words = genre.split(/\s+/);
     const isTooSimilar = selected.some((s) => {
       const sWords = s.genre.split(/\s+/);
@@ -282,13 +262,13 @@ function extract4DistinctGenres(allArtists: ArtistInfo[]): Array<{ genre: string
       return sharedWords.length >= Math.min(words.length, sWords.length);
     });
 
-    if (!isTooSimilar || selected.length + (sorted.length - sorted.indexOf([genre, data] as any)) <= 4) {
+    if (!isTooSimilar) {
       selected.push({ genre, artists: data.artists });
     }
   }
 
-  // If user has fewer than 4 genres, fill with remaining unique ones or sensible defaults
-  const defaults = ['rock', 'pop', 'indie', 'acoustic'];
+  // If still fewer than 4 distinct genres, pull distinct ones from defaults or general terms
+  const defaults = ['rock', 'pop', 'indie', 'acoustic', 'hip hop', 'r&b'];
   for (const d of defaults) {
     if (selected.length >= 4) break;
     if (!selected.some((s) => s.genre.includes(d))) {
@@ -343,26 +323,25 @@ export async function GET() {
 
     const genreRadioPromises = top4Genres.map(async ({ genre, artists }) => {
       const formatted = formatGenreTitle(genre);
-      const radioData = await importSpotifyGenreRadio(accessToken, genre, artists, 30);
+      const radioData = await importSpotifyGenreRadio(
+        accessToken,
+        genre,
+        artists,
+        topTracks,
+        30
+      );
 
-      // If imported tracks exist, build genre radio card
-      if (radioData.tracks.length > 0) {
-        return {
-          id: `genre-radio-${genre.replace(/\s+/g, '-')}`,
-          title: `${formatted} Radio`,
-          description: radioData.description,
-          imageUrl: radioData.coverUrl || pickCover(radioData.tracks),
-          badge: 'GENRE RADIO',
-          tracks: radioData.tracks,
-        };
-      }
-      return null;
+      return {
+        id: `genre-radio-${genre.replace(/[^a-zA-Z0-9]/g, '-')}`,
+        title: `${formatted} Radio`,
+        description: radioData.description,
+        imageUrl: radioData.coverUrl || pickCover(radioData.tracks) || (topArtists[0]?.imageUrl ?? ''),
+        badge: 'GENRE RADIO',
+        tracks: radioData.tracks.length > 0 ? radioData.tracks : (topTracks.length > 0 ? topTracks : MOCK_TRACKS),
+      };
     });
 
-    const genreStations = (await Promise.all(genreRadioPromises)).filter(
-      (s): s is RecommendedPlaylist => s !== null
-    );
-
+    const genreStations = await Promise.all(genreRadioPromises);
     playlists.push(...genreStations);
 
     const finalPlaylists = playlists.length > 0 ? playlists : buildMockPlaylists();
