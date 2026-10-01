@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useBeatzStore } from '@/lib/store';
 import { SpotifyTrack, QueueState } from '@/types/spotify';
 
-export function useSpotifyQueue() {
+export function useSpotifyQueue(enabled = true) {
   const queue = useBeatzStore((state) => state.queue);
   const setQueue = useBeatzStore((state) => state.setQueue);
   const addToQueueLocal = useBeatzStore((state) => state.addToQueue);
@@ -12,45 +12,39 @@ export function useSpotifyQueue() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const isFetchingRef = useRef(false);
 
   const fetchQueue = useCallback(async () => {
+    if (!enabled || isFetchingRef.current) return;
+
+    isFetchingRef.current = true;
     setIsLoading(true);
     setError(null);
     try {
       const res = await fetch('/api/spotify/queue');
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data: QueueState = await res.json();
+      if (data.error) throw new Error(data.error);
       setQueue(data);
     } catch (err: any) {
       console.warn('Using local queue state:', err.message);
-      // Keep store queue as fallback
+      setError(err.message || 'Failed to refresh Spotify queue');
     } finally {
+      isFetchingRef.current = false;
       setIsLoading(false);
     }
-  }, [setQueue]);
+  }, [enabled, setQueue]);
 
   useEffect(() => {
-    fetchQueue();
-  }, [fetchQueue]);
+    if (!enabled) return;
 
-  const addTrack = async (track: SpotifyTrack) => {
-    // 1. Optimistic update in Zustand store so UI responds immediately
+    void fetchQueue();
+    const interval = window.setInterval(() => void fetchQueue(), 5000);
+    return () => window.clearInterval(interval);
+  }, [enabled, fetchQueue]);
+
+  const addTrack = (track: SpotifyTrack) => {
     addToQueueLocal(track);
-
-    // 2. Sync with backend API
-    try {
-      const res = await fetch('/api/spotify/queue', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ uri: track.uri }),
-      });
-      if (!res.ok) {
-        const errorData = await res.json();
-        console.warn('Failed to sync queue with Spotify API:', errorData);
-      }
-    } catch (err) {
-      console.warn('Network error adding to Spotify queue:', err);
-    }
   };
 
   return {

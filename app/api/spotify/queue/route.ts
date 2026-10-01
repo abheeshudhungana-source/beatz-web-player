@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import { getQueue, addToQueue, SPOTIFY_TRACK_URI_REGEX } from '@/lib/spotify';
+import { getValidAccessToken } from '@/lib/spotify-auth';
 
 export async function GET() {
   try {
-    const cookieStore = cookies();
-    const accessToken = cookieStore.get('spotify_access_token')?.value || null;
-
+    const accessToken = await getValidAccessToken();
     const queueState = await getQueue(accessToken);
     return NextResponse.json(queueState);
   } catch (error: any) {
@@ -39,9 +37,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const cookieStore = cookies();
-    const accessToken = cookieStore.get('spotify_access_token')?.value || null;
-
+    const accessToken = await getValidAccessToken();
     const result = await addToQueue(uri, accessToken);
 
     if (!result.success) {

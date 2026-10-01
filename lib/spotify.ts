@@ -323,21 +323,33 @@ export async function getQueue(accessToken: string | null): Promise<QueueState> 
     accessToken
   );
 
-  if (res.data) {
-    const rawQueue = res.data.queue || [];
-    const upcomingTracks = rawQueue.map(mapSpotifyTrackDto);
+  if (res.status === 204 || res.status === 404) {
     return {
-      currentlyPlaying: res.data.currently_playing
-        ? mapSpotifyTrackDto(res.data.currently_playing)
-        : (upcomingTracks[0] || MOCK_TRACKS[0]),
-      upcomingTracks: upcomingTracks.length > 0 ? upcomingTracks : MOCK_TRACKS.slice(1),
+      currentlyPlaying: null,
+      upcomingTracks: [],
       isLoading: false,
       error: null,
     };
   }
 
-  // If Spotify returns 404/204 or user has no active playing device, return mock queue
-  return MOCK_QUEUE_STATE;
+  if (res.data) {
+    const rawQueue = Array.isArray(res.data.queue) ? res.data.queue : [];
+    return {
+      currentlyPlaying: res.data.currently_playing
+        ? mapSpotifyTrackDto(res.data.currently_playing)
+        : null,
+      upcomingTracks: rawQueue.map(mapSpotifyTrackDto),
+      isLoading: false,
+      error: null,
+    };
+  }
+
+  return {
+    currentlyPlaying: null,
+    upcomingTracks: [],
+    isLoading: false,
+    error: res.error || `Spotify queue unavailable (${res.status})`,
+  };
 }
 
 /**

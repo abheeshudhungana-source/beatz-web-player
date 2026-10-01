@@ -4,6 +4,20 @@ import { MOCK_TRACKS, getPreviewAudioUrl } from '@/lib/spotify';
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 
+async function syncSpotifyQueueTracks(tracks: SpotifyTrack[]): Promise<void> {
+  for (const track of tracks) {
+    const response = await fetch('/api/spotify/queue', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uri: track.uri }),
+    });
+    const result = await response.json().catch(() => null);
+    if (!response.ok || result?.success === false) {
+      throw new Error(result?.error || `Queue request failed (${response.status})`);
+    }
+  }
+}
+
 const initialQueue: QueueState = {
   currentlyPlaying: MOCK_TRACKS[0],
   upcomingTracks: MOCK_TRACKS.slice(1),
@@ -154,31 +168,52 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
         progressMs: 0,
       });
     } else {
+      const previousTrack = get().currentTrack;
+      const currentTrack = input.currentlyPlaying?.id === previousTrack?.id
+        ? previousTrack
+        : input.currentlyPlaying;
+      const trackChanged = currentTrack?.id !== previousTrack?.id;
+
       set({
         queue: {
           ...input,
-          upcomingTracks: getUpcomingQueueAfterCurrent(input.currentlyPlaying ?? get().currentTrack, input.upcomingTracks),
+          upcomingTracks: getUpcomingQueueAfterCurrent(currentTrack, input.upcomingTracks),
         },
-        currentTrack: input.currentlyPlaying ?? get().currentTrack,
+        currentTrack,
+        ...(trackChanged ? { durationMs: currentTrack?.durationMs ?? 0, progressMs: 0 } : {}),
       });
     }
   },
 
-  addToQueue: (track) =>
+  addToQueue: (track) => {
     set((state) => ({
       queue: {
         ...state.queue,
         upcomingTracks: getUpcomingQueueAfterCurrent(state.currentTrack, [...state.queue.upcomingTracks, track]),
       },
-    })),
+    }));
 
-  addMultipleToQueue: (tracks) =>
+    if (get().isSdkActive) {
+      void syncSpotifyQueueTracks([track]).catch((error: unknown) => {
+        console.warn('[Spotify queue] Failed to add track:', error);
+      });
+    }
+  },
+
+  addMultipleToQueue: (tracks) => {
     set((state) => ({
       queue: {
         ...state.queue,
         upcomingTracks: [...state.queue.upcomingTracks, ...tracks],
       },
-    })),
+    }));
+
+    if (get().isSdkActive) {
+      void syncSpotifyQueueTracks(tracks).catch((error: unknown) => {
+        console.warn('[Spotify queue] Failed to add tracks:', error);
+      });
+    }
+  },
 
   removeFromQueue: (trackId) =>
     set((state) => ({
@@ -215,6 +250,12 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
       },
     }));
     get().playTrack(first);
+
+    if (get().isSdkActive) {
+      void syncSpotifyQueueTracks(rest).catch((error: unknown) => {
+        console.warn('[Spotify queue] Failed to add playlist tracks:', error);
+      });
+    }
   },
 
   shuffleQueue: () =>
@@ -400,6 +441,23 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
 
   nextTrack: () => {
     const state = get();
+
+    if (state.isSdkActive && state.sdkDeviceId) {
+      fetch('/api/spotify/player', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'next', deviceId: state.sdkDeviceId }),
+      }).then(async (response) => {
+        const result = await response.json().catch(() => null);
+        if (!response.ok || result?.success === false) {
+          throw new Error(result?.error || `Next track request failed (${response.status})`);
+        }
+      }).catch((error: unknown) => {
+        console.warn('[Spotify player] Failed to skip to next track:', error);
+      });
+      return;
+    }
+
     const queue = state.queue.upcomingTracks;
 
     if (queue.length === 0) {

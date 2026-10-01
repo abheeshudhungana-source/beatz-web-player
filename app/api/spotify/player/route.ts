@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import { spotifyFetch } from '@/lib/spotify';
+import { getValidAccessToken } from '@/lib/spotify-auth';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json().catch(() => ({}));
     const { action, uri, deviceId, positionMs, volumePercent, shuffleState, repeatState } = body;
 
-    const cookieStore = cookies();
-    const accessToken = cookieStore.get('spotify_access_token')?.value || null;
+    const accessToken = await getValidAccessToken();
 
     if (!accessToken) {
       return NextResponse.json({ success: true, mode: 'local' });

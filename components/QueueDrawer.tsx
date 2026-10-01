@@ -28,6 +28,9 @@ export function QueueDrawer(props: QueueDrawerProps = {}) {
   const removeFromQueue = useBeatzStore((state) => state.removeFromQueue);
   const clearQueue = useBeatzStore((state) => state.clearQueue);
   const shuffleQueue = useBeatzStore((state) => state.shuffleQueue);
+  const toggleShuffle = useBeatzStore((state) => state.toggleShuffle);
+  const isShuffleEnabled = useBeatzStore((state) => state.isShuffleEnabled);
+  const isSdkActive = useBeatzStore((state) => state.isSdkActive);
   const currentTrack = useBeatzStore((state) => state.currentTrack);
 
   const isOpen = props.isOpen !== undefined ? props.isOpen : storeIsOpen;
@@ -117,16 +120,18 @@ export function QueueDrawer(props: QueueDrawerProps = {}) {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={shuffleQueue}
+                  onClick={isSdkActive ? toggleShuffle : shuffleQueue}
                   disabled={storeQueue.upcomingTracks.length < 2}
-                  className="rounded-full border border-spotify-border bg-spotify-elevated px-2 py-1 text-[10px] font-medium text-zinc-300 transition hover:border-spotify-green/50 hover:text-spotify-green disabled:cursor-not-allowed disabled:opacity-40"
+                  aria-pressed={isSdkActive ? isShuffleEnabled : undefined}
+                  className={`rounded-full border border-spotify-border bg-spotify-elevated px-2 py-1 text-[10px] font-medium transition hover:border-spotify-green/50 hover:text-spotify-green disabled:cursor-not-allowed disabled:opacity-40 ${isSdkActive && isShuffleEnabled ? 'text-spotify-green' : 'text-zinc-300'}`}
                 >
                   Shuffle
                 </button>
                 <button
                   type="button"
                   onClick={clearQueue}
-                  disabled={storeQueue.upcomingTracks.length === 0}
+                  disabled={isSdkActive || storeQueue.upcomingTracks.length === 0}
+                  title={isSdkActive ? 'Spotify does not allow clearing the live queue' : 'Clear local queue'}
                   className="rounded-full border border-spotify-border bg-spotify-elevated px-2 py-1 text-[10px] font-medium text-zinc-300 transition hover:border-red-500/50 hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   Clear
@@ -196,13 +201,15 @@ export function QueueDrawer(props: QueueDrawerProps = {}) {
                           <Play className="h-3.5 w-3.5 fill-current" />
                         </button>
 
-                        <button
-                          onClick={() => removeFromQueue(track.id)}
-                          className="p-1 text-zinc-400 opacity-0 group-hover:opacity-100 hover:text-red-400 transition"
-                          title="Remove from Queue"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
+                        {!isSdkActive && (
+                          <button
+                            onClick={() => removeFromQueue(track.id)}
+                            className="p-1 text-zinc-400 opacity-0 group-hover:opacity-100 hover:text-red-400 transition"
+                            title="Remove from Queue"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                       </div>
                     </div>
                   );

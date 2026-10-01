@@ -3,6 +3,7 @@
 import React, { useEffect } from 'react';
 import { useSpotifyAuth } from '@/hooks/useSpotifyAuth';
 import { useSpotifyPlayer } from '@/hooks/useSpotifyPlayer';
+import { useSpotifyQueue } from '@/hooks/useSpotifyQueue';
 import { useBeatzStore } from '@/store/beatz-store';
 import { QueueDrawer } from '@/components/QueueDrawer';
 import BeatzChatDrawer from '@/components/BeatzChatDrawer';
@@ -17,6 +18,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const setChatOpen = useBeatzStore((state) => state.setChatOpen);
 
   useSpotifyPlayer({ accessToken, enabled: isAuthenticated });
+  useSpotifyQueue(isAuthenticated);
 
   useEffect(() => {
     const interval = window.setInterval(() => {
