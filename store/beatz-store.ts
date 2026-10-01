@@ -47,6 +47,7 @@ interface BeatzStore {
   isQueueOpen: boolean;
   isChatOpen: boolean;
   removedQueueTrackIds: string[];
+  manualQueueOrderIds: string[];
 
   // Spotify Web Playback SDK device bridge
   sdkDeviceId: string | null;
@@ -72,6 +73,7 @@ interface BeatzStore {
   addToQueue: (track: SpotifyTrack) => void;
   addMultipleToQueue: (tracks: SpotifyTrack[]) => void;
   removeFromQueue: (trackId: string) => void;
+  reorderQueue: (trackId: string, targetIndex: number) => void;
   clearQueue: () => void;
   clearAndReplaceQueue: (tracks: SpotifyTrack[]) => void;
   shuffleQueue: () => void;
@@ -120,6 +122,7 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
   isQueueOpen: false,
   isChatOpen: false,
   removedQueueTrackIds: [],
+  manualQueueOrderIds: [],
 
   sdkDeviceId: null,
   isSdkActive: false,
@@ -186,15 +189,26 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
       const incomingTrackIds = new Set(input.upcomingTracks.map((track) => track.id));
       const removedQueueTrackIds = get().removedQueueTrackIds.filter((trackId) => incomingTrackIds.has(trackId));
       const removedTrackIds = new Set(removedQueueTrackIds);
+      const manualQueueOrderIds = get().manualQueueOrderIds.filter((trackId) => incomingTrackIds.has(trackId));
+      const manualOrder = new Map(manualQueueOrderIds.map((trackId, index) => [trackId, index]));
+      const upcomingTracks = getUpcomingQueueAfterCurrent(currentTrack, input.upcomingTracks)
+        .filter((track) => !removedTrackIds.has(track.id))
+        .sort((first, second) => {
+          const firstIndex = manualOrder.get(first.id);
+          const secondIndex = manualOrder.get(second.id);
+          if (firstIndex === undefined) return secondIndex === undefined ? 0 : 1;
+          if (secondIndex === undefined) return -1;
+          return firstIndex - secondIndex;
+        });
 
       set({
         queue: {
           ...input,
-          upcomingTracks: getUpcomingQueueAfterCurrent(currentTrack, input.upcomingTracks)
-            .filter((track) => !removedTrackIds.has(track.id)),
+          upcomingTracks,
         },
         currentTrack,
         removedQueueTrackIds,
+        manualQueueOrderIds,
         ...(trackChanged ? { durationMs: currentTrack?.durationMs ?? 0, progressMs: 0 } : {}),
       });
     }
@@ -212,6 +226,7 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
         upcomingTracks: getUpcomingQueueAfterCurrent(state.currentTrack, [...state.queue.upcomingTracks, track]),
       },
       removedQueueTrackIds: state.removedQueueTrackIds.filter((trackId) => trackId !== track.id),
+      manualQueueOrderIds: state.manualQueueOrderIds.filter((trackId) => trackId !== track.id),
     }));
 
     if (get().isSdkActive) {
@@ -242,6 +257,9 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
       removedQueueTrackIds: state.removedQueueTrackIds.filter(
         (trackId) => !newTracks.some((track) => track.id === trackId)
       ),
+      manualQueueOrderIds: state.manualQueueOrderIds.filter(
+        (trackId) => !newTracks.some((track) => track.id === trackId)
+      ),
     }));
 
     if (get().isSdkActive) {
@@ -260,7 +278,25 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
       removedQueueTrackIds: state.removedQueueTrackIds.includes(trackId)
         ? state.removedQueueTrackIds
         : [...state.removedQueueTrackIds, trackId],
+      manualQueueOrderIds: state.manualQueueOrderIds.filter((id) => id !== trackId),
     })),
+
+  reorderQueue: (trackId, targetIndex) =>
+    set((state) => {
+      const upcomingTracks = [...state.queue.upcomingTracks];
+      const sourceIndex = upcomingTracks.findIndex((track) => track.id === trackId);
+      if (sourceIndex < 0 || targetIndex < 0 || targetIndex >= upcomingTracks.length || sourceIndex === targetIndex) {
+        return {};
+      }
+
+      const [track] = upcomingTracks.splice(sourceIndex, 1);
+      upcomingTracks.splice(targetIndex, 0, track);
+
+      return {
+        queue: { ...state.queue, upcomingTracks },
+        manualQueueOrderIds: upcomingTracks.map((queuedTrack) => queuedTrack.id),
+      };
+    }),
 
   clearQueue: () =>
     set((state) => ({
@@ -268,6 +304,7 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
         ...state.queue,
         upcomingTracks: [],
       },
+      manualQueueOrderIds: [],
     })),
 
   clearAndReplaceQueue: (tracks) => {
@@ -292,6 +329,7 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
       removedQueueTrackIds: state.removedQueueTrackIds.filter(
         (trackId) => !uniqueTracks.some((track) => track.id === trackId)
       ),
+      manualQueueOrderIds: [],
     }));
     get().playTrack(first);
 
@@ -487,6 +525,12 @@ export const useBeatzStore = create<BeatzStore>((set, get) => ({
     const state = get();
 
     if (state.isSdkActive && state.sdkDeviceId) {
+      const nextQueuedTrack = state.queue.upcomingTracks[0];
+      if (nextQueuedTrack) {
+        get().playTrack(nextQueuedTrack);
+        return;
+      }
+
       fetch('/api/spotify/player', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

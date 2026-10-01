@@ -1,7 +1,8 @@
 'use client';
 
+import { useState } from 'react';
 import { useBeatzStore } from '@/store/beatz-store';
-import { ListMusic, Play, Trash2, X, Sparkles } from 'lucide-react';
+import { GripVertical, ListMusic, Play, Trash2, X, Sparkles } from 'lucide-react';
 import { SpotifyTrack } from '@/types/spotify';
 
 export interface QueueItem {
@@ -25,6 +26,7 @@ export function QueueDrawer(props: QueueDrawerProps = {}) {
   const setStoreOpen = useBeatzStore((state) => state.setQueueOpen);
   const storeQueue = useBeatzStore((state) => state.queue);
   const playTrack = useBeatzStore((state) => state.playTrack);
+  const reorderQueue = useBeatzStore((state) => state.reorderQueue);
   const removeFromQueue = useBeatzStore((state) => state.removeFromQueue);
   const clearQueue = useBeatzStore((state) => state.clearQueue);
   const shuffleQueue = useBeatzStore((state) => state.shuffleQueue);
@@ -32,6 +34,8 @@ export function QueueDrawer(props: QueueDrawerProps = {}) {
   const isShuffleEnabled = useBeatzStore((state) => state.isShuffleEnabled);
   const isSdkActive = useBeatzStore((state) => state.isSdkActive);
   const currentTrack = useBeatzStore((state) => state.currentTrack);
+  const [draggedTrackId, setDraggedTrackId] = useState<string | null>(null);
+  const [dragOverTrackId, setDragOverTrackId] = useState<string | null>(null);
 
   const isOpen = props.isOpen !== undefined ? props.isOpen : storeIsOpen;
   const handleClose = props.onClose || (() => setStoreOpen(false));
@@ -140,7 +144,7 @@ export function QueueDrawer(props: QueueDrawerProps = {}) {
             </div>
             {isSdkActive && (
               <p className="text-[11px] leading-relaxed text-zinc-500">
-                Removing hides a track from this list. Spotify may still play it because its queue API does not support individual removal.
+                Drag to reorder; Next follows this order. Spotify may still auto-advance using its own queue order. Removing hides tracks from this list only.
               </p>
             )}
 
@@ -157,12 +161,44 @@ export function QueueDrawer(props: QueueDrawerProps = {}) {
                   return (
                     <div
                       key={`${track.id}-${index}`}
+                      onDragOver={(event) => {
+                        event.preventDefault();
+                        event.dataTransfer.dropEffect = 'move';
+                        setDragOverTrackId(track.id);
+                      }}
+                      onDrop={(event) => {
+                        event.preventDefault();
+                        const sourceTrackId = event.dataTransfer.getData('text/plain') || draggedTrackId;
+                        if (sourceTrackId) reorderQueue(sourceTrackId, index);
+                        setDraggedTrackId(null);
+                        setDragOverTrackId(null);
+                      }}
                       className={`group flex items-center justify-between rounded-xl border p-2.5 transition ${
-                        isCurrent
+                        dragOverTrackId === track.id
+                          ? 'border-spotify-green bg-spotify-green/10'
+                          : isCurrent
                           ? 'border-spotify-green/50 bg-spotify-green/10'
                           : 'border-spotify-border bg-spotify-elevated/40 hover:border-spotify-green/30 hover:bg-spotify-elevated'
                       }`}
                     >
+                      <button
+                        type="button"
+                        draggable
+                        onDragStart={(event) => {
+                          setDraggedTrackId(track.id);
+                          event.dataTransfer.effectAllowed = 'move';
+                          event.dataTransfer.setData('text/plain', track.id);
+                        }}
+                        onDragEnd={() => {
+                          setDraggedTrackId(null);
+                          setDragOverTrackId(null);
+                        }}
+                        className="mr-1 shrink-0 cursor-grab touch-none text-zinc-500 transition hover:text-white active:cursor-grabbing"
+                        title="Drag to reorder"
+                        aria-label={`Drag ${track.name} to reorder`}
+                      >
+                        <GripVertical className="h-4 w-4" />
+                      </button>
                       <button
                         onClick={() => playTrack(track)}
                         className="flex min-w-0 flex-1 items-center gap-3 text-left"
