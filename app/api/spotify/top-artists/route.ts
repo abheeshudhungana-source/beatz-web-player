@@ -32,7 +32,7 @@ export async function GET() {
 
     // 1. Primary: Call Spotify Web API for user's actual top artists (medium_term = last 6 months)
     const response = await fetch(
-      'https://api.spotify.com/v1/me/top/artists?time_range=medium_term&limit=10',
+      'https://api.spotify.com/v1/me/top/artists?time_range=medium_term&limit=25',
       {
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -62,7 +62,7 @@ export async function GET() {
     // 2. Secondary fallback: If user-top-read not yet granted or top artists is empty,
     // fetch recently played tracks (uses user-read-recently-played scope already granted)
     try {
-      const recentRes = await fetch('https://api.spotify.com/v1/me/player/recently-played?limit=25', {
+      const recentRes = await fetch('https://api.spotify.com/v1/me/player/recently-played?limit=50', {
         headers: {
           Authorization: `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
@@ -93,7 +93,7 @@ export async function GET() {
         }
 
         if (recentArtists.length > 0) {
-          return NextResponse.json({ artists: recentArtists.slice(0, 10) });
+          return NextResponse.json({ artists: recentArtists.slice(0, 25) });
         }
       }
     } catch (recentErr) {

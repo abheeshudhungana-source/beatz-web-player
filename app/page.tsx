@@ -162,6 +162,7 @@ export default function Home() {
     setChatOpen,
     playTrack,
     addToQueue,
+    clearAndReplaceQueue,
   } = useBeatzStore();
 
   const handleAddToQueue = (e: React.MouseEvent, track: any) => {
@@ -230,6 +231,33 @@ export default function Home() {
     };
   }, [isAuthenticated, currentTrack?.id]);
 
+  // Live Personalized Radio Stations for "Made For You" section
+  const [radioStations, setRadioStations] = useState<Array<{
+    id: string;
+    title: string;
+    description: string;
+    imageUrl: string;
+    badge: 'RADIO';
+    tracks: import('@/types/spotify').SpotifyTrack[];
+  }>>([]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    let isMounted = true;
+    fetch('/api/spotify/radio-stations')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (isMounted && data && Array.isArray(data.stations) && data.stations.length > 0) {
+          setRadioStations(data.stations);
+        }
+      })
+      .catch((err) => console.warn('[radio-stations] Fetch error:', err));
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isAuthenticated]);
+
   // Handle clicking an artist: find or search their track and play immediately
   const handlePlayArtist = async (artistName: string) => {
     // Check if we already have a track by this artist locally
@@ -279,7 +307,7 @@ export default function Home() {
       return true;
     });
     if (!uniqueArtists.length) return [];
-    return Array.from({ length: Math.min(10, Math.max(uniqueArtists.length, 6)) }, (_, index) => {
+    return Array.from({ length: Math.min(25, Math.max(uniqueArtists.length, 6)) }, (_, index) => {
       const item = uniqueArtists[index % uniqueArtists.length];
       return {
         artist: item.artist,
@@ -669,30 +697,44 @@ export default function Home() {
         </section>
 
         <section className="space-y-4">
-          <h2 className="text-xl font-bold text-white">Made For You</h2>
+          <div className="flex items-baseline gap-3">
+            <h2 className="text-xl font-bold text-white">Made For You</h2>
+            {radioStations.length > 0 && (
+              <span className="text-xs text-spotify-subtext">Personalized radio stations</span>
+            )}
+          </div>
           <div className="no-scrollbar flex gap-5 overflow-x-auto scroll-smooth pb-2">
-            {CURATED_PLAYLISTS.map((title, index) => {
-              const track = MOCK_TRACKS[index % MOCK_TRACKS.length];
-              return (
+            {(radioStations.length > 0 ? radioStations : MOCK_TRACKS.map((t, i) => ({
+              id: `mock-station-${i}`,
+              title: `${t.artists[0]?.name ?? 'Artist'} Radio`,
+              description: `Based on ${t.artists[0]?.name ?? 'your taste'}`,
+              imageUrl: t.album?.images?.[0]?.url ?? '',
+              badge: 'RADIO' as const,
+              tracks: MOCK_TRACKS,
+            }))).map((station) => (
               <button
-                key={title}
+                key={station.id}
                 type="button"
-                onClick={() => playTrack(track)}
+                onClick={() => clearAndReplaceQueue(station.tracks)}
                 className="group w-40 shrink-0 text-left sm:w-48"
-                aria-label={`Play ${title}`}
+                aria-label={`Play ${station.title}`}
               >
                 <div className="relative aspect-square overflow-hidden rounded-lg bg-spotify-elevated">
-                  <ArtworkImage src={track.album?.images?.[0]?.url} alt="" className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
+                  <ArtworkImage src={station.imageUrl} alt="" className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
                   <div className="absolute inset-0 bg-black/0 transition group-hover:bg-black/20" />
+                  {/* RADIO badge */}
+                  <span className="absolute left-2 top-2 rounded-sm bg-black/70 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest text-spotify-green">
+                    Radio
+                  </span>
+                  {/* Hover play button */}
                   <span className="absolute bottom-3 right-3 flex h-10 w-10 translate-y-2 items-center justify-center rounded-full bg-spotify-green text-black opacity-0 shadow-xl transition group-hover:translate-y-0 group-hover:opacity-100">
                     <Play className="ml-0.5 h-4 w-4 fill-current" />
                   </span>
                 </div>
-                <span className="mt-3 block truncate text-sm font-semibold text-white">{title}</span>
-                <span className="mt-1 block line-clamp-2 text-xs leading-relaxed text-spotify-subtext">Made for you from {track.name}</span>
+                <span className="mt-3 block truncate text-sm font-semibold text-white">{station.title}</span>
+                <span className="mt-1 block line-clamp-2 text-xs leading-relaxed text-spotify-subtext">{station.description}</span>
               </button>
-              );
-            })}
+            ))}
           </div>
         </section>
 
