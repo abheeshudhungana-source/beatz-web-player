@@ -228,7 +228,7 @@ export default function Home() {
     return () => {
       isMounted = false;
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, currentTrack?.id]);
 
   // Handle clicking an artist: find or search their track and play immediately
   const handlePlayArtist = async (artistName: string) => {
