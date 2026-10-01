@@ -14,7 +14,6 @@ import {
   CheckCircle2,
   AlertCircle,
   Search,
-  House,
   SkipBack,
   SkipForward,
   Shuffle,
@@ -467,10 +466,20 @@ export default function Home() {
       {/* Top Header */}
       <header className={`z-10 flex h-16 shrink-0 items-center justify-between border-b border-spotify-border bg-spotify-surface/80 px-6 backdrop-blur transition-[margin] duration-300 ${isLyricsOpen ? 'md:mr-80 lg:mr-96' : ''}`}>
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-spotify-green">
-            <Music className="h-5 w-5 text-black" />
-          </div>
-          <span className="text-lg font-bold tracking-tight">BEATZ</span>
+        <button
+            type="button"
+            onClick={() => {
+              setActiveNav('home');
+              mainContentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            className="flex items-center gap-3 transition-opacity hover:opacity-80"
+            aria-label="Go to Home"
+          >
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-spotify-green">
+              <Music className="h-5 w-5 text-black" />
+            </div>
+            <span className="text-lg font-bold tracking-tight">BEATZ</span>
+          </button>
           {isSdkActive ? (
             <span className="flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-mono font-medium text-emerald-400">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
@@ -532,23 +541,6 @@ export default function Home() {
       <div className={`flex min-h-0 flex-1 transition-[margin] duration-300 ${isLyricsOpen ? 'md:mr-80 lg:mr-96' : ''}`}>
         <aside className="relative z-20 flex h-full w-16 shrink-0 border-r border-spotify-border bg-[#101010] px-2" aria-label="Primary navigation">
           <nav className="flex h-full w-full flex-col justify-center gap-3">
-            <button
-              type="button"
-              onClick={() => {
-                setActiveNav('home');
-                mainContentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              className={`group relative flex h-12 w-full items-center justify-center rounded-xl text-sm font-medium transition ${
-                activeNav === 'home'
-                  ? 'bg-spotify-elevated text-white'
-                  : 'text-zinc-400 hover:bg-spotify-elevated/70 hover:text-white'
-              }`}
-              aria-current={activeNav === 'home' ? 'page' : undefined}
-              aria-label="Home"
-            >
-              <House className={`h-5 w-5 shrink-0 ${activeNav === 'home' ? 'text-spotify-green' : 'group-hover:text-spotify-green'}`} />
-              <span className="pointer-events-none absolute left-full z-30 ml-3 translate-x-1 whitespace-nowrap rounded-md border border-spotify-border bg-spotify-elevated px-3 py-2 text-xs text-white opacity-0 shadow-lg transition-all duration-200 group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100">Home</span>
-            </button>
             <button
               type="button"
               onClick={() => {

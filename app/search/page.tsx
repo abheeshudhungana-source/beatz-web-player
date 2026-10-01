@@ -6,7 +6,7 @@ import { useSpotifyAuth } from '@/hooks/useSpotifyAuth';
 import { useSpotifySearch } from '@/hooks/useSpotifySearch';
 import { MOCK_TRACKS } from '@/lib/spotify';
 import { useBeatzStore } from '@/store/beatz-store';
-import { Check, House, Loader2, Music, Play, Plus, Search } from 'lucide-react';
+import { Check, Loader2, Music, Play, Plus, Search } from 'lucide-react';
 import type { SpotifyTrack } from '@/types/spotify';
 
 interface RecentSearch {
@@ -113,10 +113,6 @@ export default function SearchPage() {
       <div className="flex min-h-0 flex-1">
         <aside className="flex w-16 shrink-0 border-r border-spotify-border bg-[#101010] px-2" aria-label="Primary navigation">
           <nav className="flex h-full w-full flex-col items-center justify-center gap-3">
-            <Link href="/" className="group relative flex h-12 w-full items-center justify-center rounded-xl text-zinc-400 transition hover:bg-spotify-elevated/70 hover:text-white" aria-label="Home">
-              <House className="h-5 w-5 transition group-hover:text-spotify-green" />
-              <span className="pointer-events-none absolute left-full z-30 ml-3 translate-x-1 whitespace-nowrap rounded-md border border-spotify-border bg-spotify-elevated px-3 py-2 text-xs text-white opacity-0 shadow-lg transition-all duration-200 group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100">Home</span>
-            </Link>
             <Link href="/search" className="group relative flex h-12 w-full items-center justify-center rounded-xl bg-spotify-elevated text-white" aria-current="page" aria-label="Search">
               <Search className="h-5 w-5 text-spotify-green" />
               <span className="pointer-events-none absolute left-full z-30 ml-3 whitespace-nowrap rounded-md border border-spotify-border bg-spotify-elevated px-3 py-2 text-xs text-white shadow-lg">Search</span>
