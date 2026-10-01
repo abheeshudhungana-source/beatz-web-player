@@ -667,9 +667,13 @@ export default function Home() {
                   className="group flex w-32 shrink-0 flex-col items-center text-center"
                   aria-label={`Play ${artist.name}`}
                 >
-                  <span className="aspect-square w-full overflow-hidden rounded-full bg-spotify-elevated shadow-lg shadow-black/20 ring-1 ring-white/10 transition group-hover:ring-spotify-green/70">
-                    <ArtworkImage src={artistImageUrl} alt={artist.name} className="h-full w-full rounded-full object-cover transition duration-300 group-hover:scale-105" />
-                  </span>
+                  <div className="relative aspect-square w-full overflow-hidden rounded-full bg-spotify-elevated shadow-lg shadow-black/20 ring-1 ring-white/10 transition group-hover:ring-spotify-green/70">
+                    <ArtworkImage
+                      src={artist.images?.[0]?.url || track.album?.images?.[0]?.url}
+                      alt={artist.name}
+                      className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                    />
+                  </div>
                   <span className="mt-3 w-full truncate text-sm font-medium text-white group-hover:text-spotify-green">{artist.name}</span>
                 </button>
               );
