@@ -37,8 +37,12 @@ export default function PlayerBar() {
   const [isLyricsOpen, setIsLyricsOpen] = useState(false);
   const [lyricsForCurrentTrack, setLyricsForCurrentTrack] = useState<LyricLine[]>([]);
   const [lyricsStatus, setLyricsStatus] = useState<'idle' | 'loading' | 'available' | 'unavailable'>('idle');
+  const [isDraggingProgress, setIsDraggingProgress] = useState(false);
+  const [dragProgressPercent, setDragProgressPercent] = useState(0);
   const lyricsViewportRef = useRef<HTMLDivElement | null>(null);
   const activeLyricRef = useRef<HTMLParagraphElement | null>(null);
+  const dragProgressPercentRef = useRef(0);
+  const isDraggingProgressRef = useRef(false);
   const currentTrack = useBeatzStore((state) => state.currentTrack);
   const isPlaying = useBeatzStore((state) => state.isPlaying);
   const isShuffleEnabled = useBeatzStore((state) => state.isShuffleEnabled);
@@ -73,9 +77,44 @@ export default function PlayerBar() {
 
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
     const percent = parseFloat(e.target.value);
+    if (isDraggingProgress) {
+      dragProgressPercentRef.current = percent;
+      setDragProgressPercent(percent);
+      return;
+    }
+
     const targetMs = (percent / 100) * durationMs;
     seekTo(targetMs);
   };
+
+  const startProgressDrag = () => {
+    isDraggingProgressRef.current = true;
+    dragProgressPercentRef.current = progressPercent;
+    setDragProgressPercent(progressPercent);
+    setIsDraggingProgress(true);
+  };
+
+  const finishProgressDrag = () => {
+    if (!isDraggingProgressRef.current) return;
+
+    isDraggingProgressRef.current = false;
+    seekTo((dragProgressPercentRef.current / 100) * durationMs);
+    setIsDraggingProgress(false);
+  };
+
+  const cancelProgressDrag = () => {
+    isDraggingProgressRef.current = false;
+    setIsDraggingProgress(false);
+  };
+
+  const displayedProgressPercent = isDraggingProgress ? dragProgressPercent : progressPercent;
+
+  useEffect(() => {
+    if (!isDraggingProgress) return;
+
+    window.addEventListener('pointerup', finishProgressDrag);
+    return () => window.removeEventListener('pointerup', finishProgressDrag);
+  }, [isDraggingProgress, durationMs]);
 
   useEffect(() => {
     const trackName = currentTrack?.name;
@@ -267,9 +306,13 @@ export default function PlayerBar() {
               min="0"
               max="100"
               step="0.1"
-              value={progressPercent}
+              value={displayedProgressPercent}
               onChange={handleSeek}
-              style={{ '--progress': `${progressPercent}%` } as React.CSSProperties}
+              onPointerDown={startProgressDrag}
+              onPointerUp={finishProgressDrag}
+              onPointerCancel={cancelProgressDrag}
+              onBlur={finishProgressDrag}
+              style={{ '--progress': `${displayedProgressPercent}%` } as React.CSSProperties}
               className="slider-progress h-1 w-full cursor-pointer appearance-none rounded-full transition-all group-hover:h-1.5 [--slider-fill:#f5f5f5] hover:[--slider-fill:#1ed760] [&::-webkit-slider-runnable-track]:!bg-[linear-gradient(to_right,var(--slider-fill)_0,var(--slider-fill)_var(--progress),rgba(255,255,255,0.12)_var(--progress),rgba(255,255,255,0.12)_100%)] [&::-moz-range-progress]:!bg-[var(--slider-fill)]"
             />
           </div>
