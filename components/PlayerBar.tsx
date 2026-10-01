@@ -1,16 +1,22 @@
 'use client';
 
+import { useState } from 'react';
 import { useBeatzStore } from '@/store/beatz-store';
-import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, ListMusic, MessageSquare, Laptop2, Crown } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, Repeat1, Mic2, Volume2, VolumeX, ListMusic, MessageSquare, Laptop2, Crown } from 'lucide-react';
 
 export default function PlayerBar() {
+  const [isLyricsActive, setIsLyricsActive] = useState(false);
   const currentTrack = useBeatzStore((state) => state.currentTrack);
   const isPlaying = useBeatzStore((state) => state.isPlaying);
+  const isShuffleEnabled = useBeatzStore((state) => state.isShuffleEnabled);
+  const repeatMode = useBeatzStore((state) => state.repeatMode);
   const progressMs = useBeatzStore((state) => state.progressMs);
   const durationMs = useBeatzStore((state) => state.durationMs);
   const volume = useBeatzStore((state) => state.volume);
   const isSdkActive = useBeatzStore((state) => state.isSdkActive);
   const togglePlay = useBeatzStore((state) => state.togglePlay);
+  const toggleShuffle = useBeatzStore((state) => state.toggleShuffle);
+  const cycleRepeat = useBeatzStore((state) => state.cycleRepeat);
   const nextTrack = useBeatzStore((state) => state.nextTrack);
   const previousTrack = useBeatzStore((state) => state.previousTrack);
   const seekTo = useBeatzStore((state) => state.seekTo);
@@ -85,17 +91,32 @@ export default function PlayerBar() {
       <div className="flex flex-col items-center gap-2 w-2/4 max-w-xl">
         <div className="flex items-center gap-6 text-zinc-300">
           <button
+            type="button"
+            onClick={toggleShuffle}
+            className={`transition hover:text-spotify-green ${isShuffleEnabled ? 'text-spotify-green' : 'text-zinc-400'}`}
+            title={isShuffleEnabled ? 'Turn shuffle off' : 'Turn shuffle on'}
+            aria-label={isShuffleEnabled ? 'Turn shuffle off' : 'Turn shuffle on'}
+            aria-pressed={isShuffleEnabled}
+          >
+            <Shuffle className="h-4 w-4" />
+          </button>
+
+          <button
+            type="button"
             onClick={previousTrack}
-            className="hover:text-white transition disabled:opacity-40"
+            className="text-zinc-400 transition hover:text-spotify-green disabled:opacity-40"
             title="Restart / Previous Track"
+            aria-label="Restart or previous track"
           >
             <SkipBack className="h-4 w-4" />
           </button>
 
           <button
+            type="button"
             onClick={togglePlay}
             className="h-9 w-9 rounded-full bg-white text-black flex items-center justify-center hover:scale-105 active:scale-95 transition shadow-lg shadow-white/10"
             title={isPlaying ? 'Pause' : 'Play'}
+            aria-label={isPlaying ? 'Pause' : 'Play'}
           >
             {isPlaying ? (
               <Pause className="h-4 w-4 fill-black" />
@@ -105,11 +126,24 @@ export default function PlayerBar() {
           </button>
 
           <button
+            type="button"
             onClick={nextTrack}
-            className="hover:text-white transition disabled:opacity-40"
+            className="text-zinc-400 transition hover:text-spotify-green disabled:opacity-40"
             title="Next Track (Decoupled from ad penalties)"
+            aria-label="Next track"
           >
             <SkipForward className="h-4 w-4" />
+          </button>
+
+          <button
+            type="button"
+            onClick={cycleRepeat}
+            className={`transition hover:text-spotify-green ${repeatMode > 0 ? 'text-spotify-green' : 'text-zinc-400'}`}
+            title={repeatMode === 0 ? 'Turn repeat on' : repeatMode === 1 ? 'Repeat context' : 'Repeat current track'}
+            aria-label={repeatMode === 0 ? 'Turn repeat on' : repeatMode === 1 ? 'Repeat context' : 'Repeat current track'}
+            aria-pressed={repeatMode > 0}
+          >
+            {repeatMode === 2 ? <Repeat1 className="h-4 w-4" /> : <Repeat className="h-4 w-4" />}
           </button>
         </div>
 
@@ -149,6 +183,22 @@ export default function PlayerBar() {
         >
           <ListMusic className="h-4 w-4" />
           <span className="text-[11px] font-medium hidden sm:inline">Queue</span>
+        </button>
+
+        {/* Lyrics Toggle */}
+        <button
+          type="button"
+          onClick={() => setIsLyricsActive((active) => !active)}
+          className={`p-2 rounded-full transition ${
+            isLyricsActive
+              ? 'text-spotify-green bg-spotify-green/10'
+              : 'text-zinc-400 hover:text-spotify-green hover:bg-spotify-elevated'
+          }`}
+          title={isLyricsActive ? 'Turn lyrics indicator off' : 'Turn lyrics indicator on'}
+          aria-label={isLyricsActive ? 'Turn lyrics indicator off' : 'Turn lyrics indicator on'}
+          aria-pressed={isLyricsActive}
+        >
+          <Mic2 className="h-4 w-4" />
         </button>
 
         {/* AI Chat Drawer Button */}
