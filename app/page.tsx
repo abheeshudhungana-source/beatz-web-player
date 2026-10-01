@@ -205,12 +205,10 @@ export default function Home() {
   }>>([]);
 
   useEffect(() => {
-    if (!isAuthenticated) return;
     let isMounted = true;
     fetch('/api/spotify/radio-stations')
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        // New API returns { playlists: [...] }, old returned { stations: [...] }
         const items = data?.playlists ?? data?.stations ?? [];
         if (isMounted && Array.isArray(items) && items.length > 0) {
           setRadioStations(items);
@@ -579,15 +577,32 @@ export default function Home() {
             )}
           </div>
           <div className="no-scrollbar flex gap-5 overflow-x-auto scroll-smooth pb-2">
-            {(radioStations.length > 0 ? radioStations : MOCK_TRACKS.slice(0, 5).map((t, i) => ({
-              id: `mock-playlist-${i}`,
-              title: t.name,
-              description: t.artists[0]?.name ?? 'Artist',
-              imageUrl: t.album?.images?.[0]?.url ?? '',
-              badge: 'TOP PICKS',
-              // Each fallback card gets its own unique slice — no more mismatch!
-              tracks: MOCK_TRACKS.slice(i, i + 5).concat(MOCK_TRACKS.slice(0, i)),
-            }))).map((station) => (
+            {(radioStations.length > 0 ? radioStations : [
+              {
+                id: 'placeholder-mix-1',
+                title: 'Daily Mix: Synth & Indie',
+                description: 'With M83, The Weeknd and more',
+                imageUrl: MOCK_TRACKS[2]?.album?.images?.[0]?.url ?? '',
+                badge: 'DAILY MIX 1',
+                tracks: [MOCK_TRACKS[2], MOCK_TRACKS[1], MOCK_TRACKS[3]],
+              },
+              {
+                id: 'placeholder-mix-2',
+                title: 'Daily Mix: Pop Hits',
+                description: 'With The Kid LAROI, Justin Bieber and more',
+                imageUrl: MOCK_TRACKS[3]?.album?.images?.[0]?.url ?? '',
+                badge: 'DAILY MIX 2',
+                tracks: [MOCK_TRACKS[3], MOCK_TRACKS[4], MOCK_TRACKS[1]],
+              },
+              {
+                id: 'placeholder-mix-3',
+                title: 'Acoustic & Chill Mix',
+                description: 'With Ed Sheeran and similar sounds',
+                imageUrl: MOCK_TRACKS[4]?.album?.images?.[0]?.url ?? '',
+                badge: 'CHILL MIX',
+                tracks: [MOCK_TRACKS[4], MOCK_TRACKS[2], MOCK_TRACKS[3]],
+              },
+            ]).map((station) => (
               <button
                 key={station.id}
                 type="button"
