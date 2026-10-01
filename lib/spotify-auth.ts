@@ -154,21 +154,25 @@ export async function getValidAccessToken(): Promise<string | null> {
         accessToken = refreshed.access_token;
         const newExpiresAt = Date.now() + refreshed.expires_in * 1000;
 
-        cookieStore.set('spotify_access_token', accessToken, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'lax',
-          maxAge: refreshed.expires_in,
-          path: '/',
-        });
+        try {
+          cookieStore.set('spotify_access_token', accessToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: refreshed.expires_in,
+            path: '/',
+          });
 
-        cookieStore.set('spotify_token_expires_at', newExpiresAt.toString(), {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'lax',
-          maxAge: refreshed.expires_in,
-          path: '/',
-        });
+          cookieStore.set('spotify_token_expires_at', newExpiresAt.toString(), {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: refreshed.expires_in,
+            path: '/',
+          });
+        } catch {
+          // In contexts where cookies cannot be mutated (e.g. read-only prerender), ignore mutation error
+        }
       }
     }
 

@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { refreshAccessToken } from '@/lib/spotify-auth';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   const cookieStore = cookies();
   let accessToken = cookieStore.get('spotify_access_token')?.value;

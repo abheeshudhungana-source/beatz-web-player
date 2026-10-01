@@ -219,14 +219,18 @@ export default function Home() {
   const topArtists = useMemo(() => {
     const seenArtistIds = new Set<string>();
     const uniqueArtists = MOCK_TRACKS.flatMap((track) => track.artists.map((artist) => ({ artist, track }))).filter(({ artist }) => {
-      if (seenArtistIds.has(artist.id)) return false;
+      if (!artist?.id || seenArtistIds.has(artist.id)) return false;
       seenArtistIds.add(artist.id);
       return true;
     });
-    return Array.from({ length: 10 }, (_, index) => ({
-      ...uniqueArtists[index % uniqueArtists.length],
-      cardId: `${uniqueArtists[index % uniqueArtists.length].artist.id}-${index}`,
-    }));
+    if (!uniqueArtists.length) return [];
+    return Array.from({ length: 10 }, (_, index) => {
+      const item = uniqueArtists[index % uniqueArtists.length];
+      return {
+        ...item,
+        cardId: `${item?.artist?.id || 'artist'}-${index}`,
+      };
+    });
   }, []);
 
   const lyricTrackId = currentTrack?.id;
