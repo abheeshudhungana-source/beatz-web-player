@@ -5,22 +5,31 @@ import type { SpotifyTrack } from '@/types/spotify';
 
 export const dynamic = 'force-dynamic';
 
-export interface RadioStation {
+export interface RecommendedPlaylist {
   id: string;
   title: string;
   description: string;
   imageUrl: string;
-  badge: 'RADIO';
-  seedArtistId: string | null;
+  badge: string;
   tracks: SpotifyTrack[];
 }
 
-// ── Fetchers ─────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-/**
- * Fetch an artist's top tracks (still fully available, no special scope needed).
- * Market defaults to 'US' but Spotify also accepts 'from_token'.
- */
+async function fetchTopTracks(
+  accessToken: string,
+  timeRange: 'short_term' | 'medium_term' | 'long_term' = 'medium_term',
+  limit = 20
+): Promise<SpotifyTrack[]> {
+  const res = await fetch(
+    `https://api.spotify.com/v1/me/top/tracks?time_range=${timeRange}&limit=${limit}`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  if (!res.ok) return [];
+  const data = await res.json();
+  return (data.items || []).map(mapSpotifyTrackDto);
+}
+
 async function fetchArtistTopTracks(
   accessToken: string,
   artistId: string,
@@ -30,50 +39,56 @@ async function fetchArtistTopTracks(
     `https://api.spotify.com/v1/artists/${artistId}/top-tracks?market=${market}`,
     { headers: { Authorization: `Bearer ${accessToken}` } }
   );
-  if (!res.ok) {
-    console.warn(`[radio-stations] artist top-tracks ${artistId} status ${res.status}`);
-    return [];
-  }
+  if (!res.ok) return [];
   const data = await res.json();
   return (data.tracks || []).map(mapSpotifyTrackDto);
 }
 
-/**
- * Fetch related artists for a given artist, then get their top track each —
- * used to build variety in the Discovery Mix.
- */
-async function fetchRelatedArtistsTracks(
+async function fetchRecentlyPlayed(
   accessToken: string,
-  artistId: string,
-  limit = 10
+  limit = 20
 ): Promise<SpotifyTrack[]> {
-  const relatedRes = await fetch(
-    `https://api.spotify.com/v1/artists/${artistId}/related-artists`,
+  const res = await fetch(
+    `https://api.spotify.com/v1/me/player/recently-played?limit=${limit}`,
     { headers: { Authorization: `Bearer ${accessToken}` } }
   );
-  if (!relatedRes.ok) return [];
-
-  const relatedData = await relatedRes.json();
-  const relatedArtists: Array<{ id: string; name: string }> = (relatedData.artists || []).slice(0, limit);
-
-  const trackPromises = relatedArtists.map((a) => fetchArtistTopTracks(accessToken, a.id));
-  const trackArrays = await Promise.all(trackPromises);
-
-  // One top track per related artist, shuffled for freshness
-  const tracks = trackArrays
-    .map((arr) => arr[0])
-    .filter((t): t is SpotifyTrack => !!t);
-
-  return shuffle(tracks);
+  if (!res.ok) return [];
+  const data = await res.json();
+  // Deduplicate by track id
+  const seen = new Set<string>();
+  const tracks: SpotifyTrack[] = [];
+  for (const item of data.items || []) {
+    if (item.track && !seen.has(item.track.id)) {
+      seen.add(item.track.id);
+      tracks.push(mapSpotifyTrackDto(item.track));
+    }
+  }
+  return tracks;
 }
 
-function shuffle<T>(arr: T[]): T[] {
-  const out = [...arr];
-  for (let i = out.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [out[i], out[j]] = [out[j], out[i]];
+async function fetchTopArtists(
+  accessToken: string,
+  limit = 10
+): Promise<Array<{ id: string; name: string; imageUrl: string }>> {
+  const res = await fetch(
+    `https://api.spotify.com/v1/me/top/artists?time_range=medium_term&limit=${limit}`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  if (!res.ok) return [];
+  const data = await res.json();
+  return (data.items || []).map((a: any) => ({
+    id: a.id,
+    name: a.name,
+    imageUrl: a.images?.[0]?.url || '',
+  }));
+}
+
+function pickCover(tracks: SpotifyTrack[], fallbackUrl = ''): string {
+  for (const t of tracks) {
+    const url = t.album?.images?.[0]?.url;
+    if (url) return url;
   }
-  return out;
+  return fallbackUrl;
 }
 
 // ── Main handler ──────────────────────────────────────────────────────────────
@@ -83,167 +98,138 @@ export async function GET() {
     const accessToken = await getValidAccessToken();
 
     if (!accessToken) {
-      return NextResponse.json({ stations: buildMockStations() });
+      return NextResponse.json({ playlists: buildMockPlaylists() });
     }
 
-    // ── Step 1: Fetch user's top artists (seeding material) ──────────────────
-    let topArtists: Array<{
-      id: string;
-      name: string;
-      imageUrl: string;
-      genres: string[];
-    }> = [];
-
-    const topRes = await fetch(
-      'https://api.spotify.com/v1/me/top/artists?time_range=medium_term&limit=10',
-      { headers: { Authorization: `Bearer ${accessToken}` } }
-    );
-
-    if (topRes.ok) {
-      const topData = await topRes.json();
-      topArtists = (topData.items || []).map((a: any) => ({
-        id: a.id,
-        name: a.name,
-        imageUrl: a.images?.[0]?.url || '',
-        genres: (a.genres || []).slice(0, 2),
-      }));
-    }
-
-    // ── Step 2: Fallback — recently played if top artists empty ─────────────
-    if (topArtists.length === 0) {
-      const recentRes = await fetch(
-        'https://api.spotify.com/v1/me/player/recently-played?limit=50',
-        { headers: { Authorization: `Bearer ${accessToken}` } }
-      );
-      if (recentRes.ok) {
-        const recentData = await recentRes.json();
-        const seen = new Set<string>();
-        for (const item of recentData.items || []) {
-          const track = item.track;
-          if (!track) continue;
-          for (const artist of track.artists || []) {
-            if (artist.id && !seen.has(artist.id)) {
-              seen.add(artist.id);
-              topArtists.push({
-                id: artist.id,
-                name: artist.name,
-                imageUrl: track.album?.images?.[0]?.url || '',
-                genres: [],
-              });
-            }
-          }
-        }
-        topArtists = topArtists.slice(0, 10);
-      }
-    }
-
-    if (topArtists.length === 0) {
-      return NextResponse.json({ stations: buildMockStations() });
-    }
-
-    // ── Step 3: Build artist radios using /v1/artists/{id}/top-tracks ────────
-    // Top 4 individual artist radios + 1 Discovery Mix
-    const stationArtists = topArtists.slice(0, 4);
-
-    const artistRadioPromises: Promise<RadioStation>[] = stationArtists.map(
-      async (artist): Promise<RadioStation> => {
-        // Primary: artist's own top tracks
-        const ownTracks = await fetchArtistTopTracks(accessToken, artist.id);
-
-        // Secondary: a few tracks from 3 related artists for variety
-        const relatedTracks = await fetchRelatedArtistsTracks(accessToken, artist.id, 3);
-
-        // Merge: start with artist's own songs, then sprinkle in related
-        const merged = [...ownTracks.slice(0, 12), ...relatedTracks.slice(0, 8)];
-
-        // Build a subtitle from unique non-seed artist names in the station
-        const otherNames = Array.from(
-          new Set(
-            merged
-              .flatMap((t) => t.artists.map((a) => a.name))
-              .filter((n) => n.toLowerCase() !== artist.name.toLowerCase())
-          )
-        ).slice(0, 3);
-
-        return {
-          id: `radio-artist-${artist.id}`,
-          title: `${artist.name} Radio`,
-          description: otherNames.length
-            ? `With ${otherNames.join(', ')} and more`
-            : `Based on ${artist.name}'s style`,
-          imageUrl: artist.imageUrl,
-          badge: 'RADIO',
-          seedArtistId: artist.id,
-          tracks: merged.length > 0 ? merged : MOCK_TRACKS.slice(0, 10),
-        };
-      }
-    );
-
-    // ── Step 4: Discovery Mix ────────────────────────────────────────────────
-    const discoveryPromise: Promise<RadioStation> = (async () => {
-      // Take top tracks from artist #2, #3, #4 (not #1 — saved for their own radio)
-      // and shuffle them together
-      const discoveryArtists = topArtists.slice(1, 5);
-      const trackBatches = await Promise.all(
-        discoveryArtists.map((a) => fetchArtistTopTracks(accessToken, a.id))
-      );
-      const allTracks = shuffle(trackBatches.flat()).slice(0, 20);
-      const coverArtist = topArtists[0];
-
-      return {
-        id: 'radio-discovery-mix',
-        title: 'Discovery Mix',
-        description: "Fresh tracks you'll love based on your listening taste",
-        imageUrl: coverArtist?.imageUrl || '',
-        badge: 'RADIO',
-        seedArtistId: null,
-        tracks: allTracks.length > 0 ? allTracks : MOCK_TRACKS,
-      };
-    })();
-
-    const [discoveryStation, ...artistStations] = await Promise.all([
-      discoveryPromise,
-      ...artistRadioPromises,
+    // Fetch all raw data in parallel
+    const [topTracksMedium, topTracksShort, recentTracks, topArtists] = await Promise.all([
+      fetchTopTracks(accessToken, 'medium_term', 20),
+      fetchTopTracks(accessToken, 'short_term', 20),
+      fetchRecentlyPlayed(accessToken, 30),
+      fetchTopArtists(accessToken, 6),
     ]);
 
-    // Order: artist radios first, discovery mix last
-    const stations = [...artistStations, discoveryStation];
+    // If we got nothing at all, return mock
+    if (!topTracksMedium.length && !recentTracks.length && !topArtists.length) {
+      return NextResponse.json({ playlists: buildMockPlaylists() });
+    }
 
-    return NextResponse.json({ stations });
+    const playlists: RecommendedPlaylist[] = [];
+
+    // ── Playlist 1: Your Top Hits (medium_term top tracks) ───────────────────
+    if (topTracksMedium.length > 0) {
+      playlists.push({
+        id: 'playlist-top-hits',
+        title: 'Your Top Hits',
+        description: 'Your most played tracks over the last 6 months',
+        imageUrl: pickCover(topTracksMedium),
+        badge: 'TOP PICKS',
+        tracks: topTracksMedium,
+      });
+    }
+
+    // ── Playlist 2: On Repeat (short_term — last 4 weeks) ────────────────────
+    if (topTracksShort.length > 0) {
+      playlists.push({
+        id: 'playlist-on-repeat',
+        title: 'On Repeat',
+        description: "What you've been playing a lot lately",
+        imageUrl: pickCover(topTracksShort),
+        badge: 'THIS MONTH',
+        tracks: topTracksShort,
+      });
+    }
+
+    // ── Playlist 3: Recently Played ───────────────────────────────────────────
+    if (recentTracks.length > 0) {
+      playlists.push({
+        id: 'playlist-recently-played',
+        title: 'Recently Played',
+        description: 'Tracks you listened to recently',
+        imageUrl: pickCover(recentTracks),
+        badge: 'RECENT',
+        tracks: recentTracks,
+      });
+    }
+
+    // ── Playlists 4-6: Top Artist deep dives ──────────────────────────────────
+    // Fetch top tracks for top 3 artists in parallel
+    const artistTrackResults = await Promise.all(
+      topArtists.slice(0, 3).map(async (artist) => ({
+        artist,
+        tracks: await fetchArtistTopTracks(accessToken, artist.id),
+      }))
+    );
+
+    for (const { artist, tracks } of artistTrackResults) {
+      if (tracks.length === 0) continue;
+      playlists.push({
+        id: `playlist-artist-${artist.id}`,
+        title: `${artist.name} Essentials`,
+        description: `Best of ${artist.name}`,
+        imageUrl: artist.imageUrl || pickCover(tracks),
+        badge: 'ARTIST MIX',
+        tracks,
+      });
+    }
+
+    // ── Playlist 7: Discovery Mix (unique tracks from artists 4-6) ────────────
+    const discoveryArtists = topArtists.slice(3, 6);
+    if (discoveryArtists.length > 0) {
+      const discoveryResults = await Promise.all(
+        discoveryArtists.map((a) => fetchArtistTopTracks(accessToken, a.id))
+      );
+      const discoveryTracks = discoveryResults
+        .flat()
+        .filter((t, i, arr) => arr.findIndex((x) => x.id === t.id) === i) // dedupe
+        .slice(0, 20);
+
+      if (discoveryTracks.length > 0) {
+        playlists.push({
+          id: 'playlist-discovery-mix',
+          title: 'Discovery Mix',
+          description: `Fresh picks based on artists you love`,
+          imageUrl: discoveryArtists[0]
+            ? topArtists.find((a) => a.id === discoveryArtists[0].id)?.imageUrl || pickCover(discoveryTracks)
+            : pickCover(discoveryTracks),
+          badge: 'FOR YOU',
+          tracks: discoveryTracks,
+        });
+      }
+    }
+
+    return NextResponse.json({ playlists });
   } catch (error) {
-    console.error('[radio-stations] Error building radio stations:', error);
-    return NextResponse.json({ stations: buildMockStations() });
+    console.error('[radio-stations] Error building playlists:', error);
+    return NextResponse.json({ playlists: buildMockPlaylists() });
   }
 }
 
-// ── Mock fallback stations ────────────────────────────────────────────────────
-function buildMockStations(): RadioStation[] {
+// ── Mock fallback ─────────────────────────────────────────────────────────────
+function buildMockPlaylists(): RecommendedPlaylist[] {
   return [
     {
-      id: 'radio-mock-1',
-      title: 'Your Daily Mix',
-      description: 'Based on your recent listening',
-      imageUrl: MOCK_TRACKS[0].album?.images?.[0]?.url || '',
-      badge: 'RADIO',
-      seedArtistId: null,
-      tracks: MOCK_TRACKS,
+      id: 'mock-playlist-1',
+      title: 'Your Top Hits',
+      description: 'Your most played tracks',
+      imageUrl: MOCK_TRACKS[0]?.album?.images?.[0]?.url || '',
+      badge: 'TOP PICKS',
+      tracks: MOCK_TRACKS.slice(0, 5),
     },
     {
-      id: 'radio-mock-2',
-      title: 'Pop Hits Radio',
-      description: 'Fresh pop tracks you might love',
-      imageUrl: MOCK_TRACKS[1].album?.images?.[0]?.url || '',
-      badge: 'RADIO',
-      seedArtistId: null,
-      tracks: MOCK_TRACKS.slice(1),
+      id: 'mock-playlist-2',
+      title: 'On Repeat',
+      description: "What you've had on loop",
+      imageUrl: MOCK_TRACKS[1]?.album?.images?.[0]?.url || '',
+      badge: 'THIS MONTH',
+      tracks: MOCK_TRACKS.slice(1, 6),
     },
     {
-      id: 'radio-mock-3',
-      title: 'Discover Weekly',
-      description: 'New music tailored for you',
-      imageUrl: MOCK_TRACKS[2].album?.images?.[0]?.url || '',
-      badge: 'RADIO',
-      seedArtistId: null,
+      id: 'mock-playlist-3',
+      title: 'Recently Played',
+      description: 'Your recent listening history',
+      imageUrl: MOCK_TRACKS[2]?.album?.images?.[0]?.url || '',
+      badge: 'RECENT',
       tracks: MOCK_TRACKS.slice(2),
     },
   ];

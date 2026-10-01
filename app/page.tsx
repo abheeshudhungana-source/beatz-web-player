@@ -194,13 +194,13 @@ export default function Home() {
     };
   }, [isAuthenticated, currentTrack?.id]);
 
-  // Live Personalized Radio Stations for "Made For You" section
+  // Live Personalized Recommended Playlists for "Made For You" section
   const [radioStations, setRadioStations] = useState<Array<{
     id: string;
     title: string;
     description: string;
     imageUrl: string;
-    badge: 'RADIO';
+    badge: string;
     tracks: import('@/types/spotify').SpotifyTrack[];
   }>>([]);
 
@@ -210,8 +210,10 @@ export default function Home() {
     fetch('/api/spotify/radio-stations')
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (isMounted && data && Array.isArray(data.stations) && data.stations.length > 0) {
-          setRadioStations(data.stations);
+        // New API returns { playlists: [...] }, old returned { stations: [...] }
+        const items = data?.playlists ?? data?.stations ?? [];
+        if (isMounted && Array.isArray(items) && items.length > 0) {
+          setRadioStations(items);
         }
       })
       .catch((err) => console.warn('[radio-stations] Fetch error:', err));
@@ -573,17 +575,18 @@ export default function Home() {
           <div className="flex items-baseline gap-3">
             <h2 className="text-xl font-bold text-white">Made For You</h2>
             {radioStations.length > 0 && (
-              <span className="text-xs text-spotify-subtext">Personalized radio stations</span>
+              <span className="text-xs text-spotify-subtext">Personalized playlists</span>
             )}
           </div>
           <div className="no-scrollbar flex gap-5 overflow-x-auto scroll-smooth pb-2">
-            {(radioStations.length > 0 ? radioStations : MOCK_TRACKS.map((t, i) => ({
-              id: `mock-station-${i}`,
-              title: `${t.artists[0]?.name ?? 'Artist'} Radio`,
-              description: `Based on ${t.artists[0]?.name ?? 'your taste'}`,
+            {(radioStations.length > 0 ? radioStations : MOCK_TRACKS.slice(0, 5).map((t, i) => ({
+              id: `mock-playlist-${i}`,
+              title: t.name,
+              description: t.artists[0]?.name ?? 'Artist',
               imageUrl: t.album?.images?.[0]?.url ?? '',
-              badge: 'RADIO' as const,
-              tracks: MOCK_TRACKS,
+              badge: 'TOP PICKS',
+              // Each fallback card gets its own unique slice — no more mismatch!
+              tracks: MOCK_TRACKS.slice(i, i + 5).concat(MOCK_TRACKS.slice(0, i)),
             }))).map((station) => (
               <button
                 key={station.id}
@@ -595,9 +598,9 @@ export default function Home() {
                 <div className="relative aspect-square overflow-hidden rounded-lg bg-spotify-elevated">
                   <ArtworkImage src={station.imageUrl} alt="" className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
                   <div className="absolute inset-0 bg-black/0 transition group-hover:bg-black/20" />
-                  {/* RADIO badge */}
+                  {/* Dynamic badge */}
                   <span className="absolute left-2 top-2 rounded-sm bg-black/70 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest text-spotify-green">
-                    Radio
+                    {station.badge}
                   </span>
                   {/* Hover play button */}
                   <span className="absolute bottom-3 right-3 flex h-10 w-10 translate-y-2 items-center justify-center rounded-full bg-spotify-green text-black opacity-0 shadow-xl transition group-hover:translate-y-0 group-hover:opacity-100">
