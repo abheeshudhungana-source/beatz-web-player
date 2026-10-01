@@ -21,15 +21,69 @@ interface ArtistInfo {
   genres: string[];
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function formatGenreTitle(rawGenre: string): string {
-  if (!rawGenre) return 'Music';
-  return rawGenre
-    .split(/\s+/)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-    .join(' ');
+interface GenreStationConfig {
+  id: string;
+  title: string;
+  badge: string;
+  genreKeywords: string[];
+  searchQuery: string;
+  curatedFallback: SpotifyTrack[];
 }
+
+// ── Strict Genre Catalog Definitions ──────────────────────────────────────────
+
+const GENRE_CATALOG: GenreStationConfig[] = [
+  {
+    id: 'genre-nepali-rock',
+    title: 'Nepali Rock Radio',
+    badge: 'NEPALI ROCK',
+    genreKeywords: ['nepali rock', 'nepali indie', 'nepali metal', 'nepali pop rock'],
+    searchQuery: 'nepali rock',
+    curatedFallback: [],
+  },
+  {
+    id: 'genre-rock',
+    title: 'Rock & Alternative Radio',
+    badge: 'ROCK RADIO',
+    genreKeywords: ['rock', 'alternative rock', 'grunge', 'metal', 'punk', 'hard rock', 'modern rock', 'indie rock'],
+    searchQuery: 'rock hits classics',
+    curatedFallback: [MOCK_TRACKS[2]], // M83 / Alternative
+  },
+  {
+    id: 'genre-pop',
+    title: 'Pop Hits Radio',
+    badge: 'POP RADIO',
+    genreKeywords: ['pop', 'dance pop', 'electropop', 'synthpop', 'teen pop', 'post-teen pop', 'desi pop'],
+    searchQuery: 'top pop hits',
+    curatedFallback: [MOCK_TRACKS[1], MOCK_TRACKS[3], MOCK_TRACKS[4]], // The Weeknd, The Kid LAROI, Ed Sheeran
+  },
+  {
+    id: 'genre-indie',
+    title: 'Indie & Alt Radio',
+    badge: 'INDIE RADIO',
+    genreKeywords: ['indie', 'indie pop', 'indie folk', 'bedroom pop', 'lo-fi', 'alt z', 'shoegaze'],
+    searchQuery: 'indie rock essentials',
+    curatedFallback: [MOCK_TRACKS[2], MOCK_TRACKS[3]],
+  },
+  {
+    id: 'genre-acoustic',
+    title: 'Acoustic & Chill Radio',
+    badge: 'ACOUSTIC RADIO',
+    genreKeywords: ['acoustic', 'folk', 'singer-songwriter', 'unplugged', 'chill', 'ambient', 'nepali folk'],
+    searchQuery: 'acoustic chill pop hits',
+    curatedFallback: [MOCK_TRACKS[4], MOCK_TRACKS[2]], // Ed Sheeran / Chill
+  },
+  {
+    id: 'genre-hiphop',
+    title: 'Hip-Hop & R&B Radio',
+    badge: 'HIP-HOP RADIO',
+    genreKeywords: ['hip hop', 'rap', 'trap', 'r&b', 'urban contemporary', 'desi hip hop'],
+    searchQuery: 'hip hop hits',
+    curatedFallback: [MOCK_TRACKS[3], MOCK_TRACKS[1]],
+  },
+];
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function pickCover(tracks: SpotifyTrack[], fallbackUrl = ''): string {
   for (const t of tracks) {
@@ -37,6 +91,11 @@ function pickCover(tracks: SpotifyTrack[], fallbackUrl = ''): string {
     if (url) return url;
   }
   return fallbackUrl;
+}
+
+function artistMatchesGenre(artist: ArtistInfo, config: GenreStationConfig): boolean {
+  const genres = (artist.genres || []).map((g) => g.toLowerCase());
+  return genres.some((g) => config.genreKeywords.some((kw) => g.includes(kw)));
 }
 
 async function fetchTopArtists(
@@ -103,183 +162,100 @@ async function fetchArtistTopTracks(
 }
 
 /**
- * Imports Spotify's official or curated genre radio station tracks.
- * Combines direct Spotify track search for the genre with user's favorite artists in that genre.
- * Guaranteed to never return empty tracks.
+ * Searches Spotify for verified tracks matching the genre query.
  */
-async function importSpotifyGenreRadio(
+async function searchSpotifyGenreTracks(
   accessToken: string,
-  genreName: string,
-  userArtistsInGenre: ArtistInfo[],
-  fallbackPool: SpotifyTrack[],
-  limit = 30
-): Promise<{ tracks: SpotifyTrack[]; coverUrl: string; description: string }> {
-  const formattedGenre = formatGenreTitle(genreName);
-  let radioTracks: SpotifyTrack[] = [];
-  let coverUrl = '';
-
-  // 1. Direct Spotify track search for this genre (e.g. "nepali rock" or "pop" or "indie")
+  query: string,
+  limit = 25
+): Promise<SpotifyTrack[]> {
   try {
-    const cleanQuery = genreName.replace(/["']/g, '').trim();
     const res = await fetch(
-      `https://api.spotify.com/v1/search?q=${encodeURIComponent(cleanQuery)}&type=track&limit=${limit}`,
+      `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=${limit}`,
       { headers: { Authorization: `Bearer ${accessToken}` } }
     );
-    if (res.ok) {
-      const data = await res.json();
-      const raw = (data.tracks?.items || []).filter((t: any) => t && t.id);
-      if (raw.length > 0) {
-        radioTracks = raw.map(mapSpotifyTrackDto);
-      }
-    }
-  } catch (err) {
-    console.warn(`[radio-stations] track search error for ${genreName}:`, err);
+    if (!res.ok) return [];
+    const data = await res.json();
+    const raw = (data.tracks?.items || []).filter((t: any) => t && t.id);
+    return raw.map(mapSpotifyTrackDto);
+  } catch {
+    return [];
   }
+}
 
-  // 2. Fetch top tracks from the user's favorite artists in this genre
+/**
+ * Builds a strictly genre-classified radio station:
+ * - Only includes user's artists who strictly match this genre.
+ * - Imports authentic Spotify genre search tracks.
+ * - NEVER cross-contaminates with unrelated top hits.
+ */
+async function buildAccurateGenreStation(
+  accessToken: string,
+  config: GenreStationConfig,
+  matchingArtists: ArtistInfo[]
+): Promise<RecommendedPlaylist> {
+  // 1. Fetch tracks for user's verified artists in this genre
   let userArtistTracks: SpotifyTrack[] = [];
-  if (userArtistsInGenre.length > 0) {
-    const targetArtists = userArtistsInGenre.slice(0, 3);
-    const trackBatches = await Promise.all(
-      targetArtists.map((a) => fetchArtistTopTracks(accessToken, a.id))
+  if (matchingArtists.length > 0) {
+    const topArtists = matchingArtists.slice(0, 3);
+    const batches = await Promise.all(
+      topArtists.map((a) => fetchArtistTopTracks(accessToken, a.id))
     );
-    userArtistTracks = trackBatches.flatMap((b) => b.slice(0, 4));
-    coverUrl = targetArtists[0]?.imageUrl || '';
+    userArtistTracks = batches.flatMap((b) => b.slice(0, 4));
   }
 
-  // 3. Try playlist search if we still need more tracks or artwork
-  if (radioTracks.length < 10) {
-    try {
-      const plSearchRes = await fetch(
-        `https://api.spotify.com/v1/search?q=${encodeURIComponent(formattedGenre + ' Radio')}&type=playlist&limit=3`,
-        { headers: { Authorization: `Bearer ${accessToken}` } }
-      );
-      if (plSearchRes.ok) {
-        const plData = await plSearchRes.json();
-        const firstPl = plData.playlists?.items?.[0];
-        if (firstPl?.id) {
-          if (!coverUrl) coverUrl = firstPl.images?.[0]?.url || '';
-          const trRes = await fetch(
-            `https://api.spotify.com/v1/playlists/${firstPl.id}/tracks?limit=20`,
-            { headers: { Authorization: `Bearer ${accessToken}` } }
-          );
-          if (trRes.ok) {
-            const trData = await trRes.json();
-            const items = (trData.items || []).map((i: any) => i.track).filter((t: any) => t && t.id);
-            if (items.length > 0) {
-              radioTracks.push(...items.map(mapSpotifyTrackDto));
-            }
-          }
-        }
-      }
-    } catch {}
-  }
+  // 2. Fetch authentic Spotify genre tracks for this station
+  const spotifyGenreTracks = await searchSpotifyGenreTracks(
+    accessToken,
+    config.searchQuery,
+    25
+  );
 
-  // 4. Combine user's favorite artist tracks + radio tracks (interleave)
-  const combined: SpotifyTrack[] = [];
+  // 3. Interleave user's verified artists in this genre with Spotify genre tracks
+  const combinedTracks: SpotifyTrack[] = [];
   const seen = new Set<string>();
 
-  const maxLen = Math.max(userArtistTracks.length, radioTracks.length);
-  for (let i = 0; i < maxLen && combined.length < limit; i++) {
+  const maxLen = Math.max(userArtistTracks.length, spotifyGenreTracks.length);
+  for (let i = 0; i < maxLen && combinedTracks.length < 25; i++) {
     if (i < userArtistTracks.length) {
       const t = userArtistTracks[i];
       if (!seen.has(t.id)) {
         seen.add(t.id);
-        combined.push(t);
+        combinedTracks.push(t);
       }
     }
-    if (i < radioTracks.length && combined.length < limit) {
-      const t = radioTracks[i];
+    if (i < spotifyGenreTracks.length && combinedTracks.length < 25) {
+      const t = spotifyGenreTracks[i];
       if (!seen.has(t.id)) {
         seen.add(t.id);
-        combined.push(t);
+        combinedTracks.push(t);
       }
     }
   }
 
-  // 5. Solid safety guarantee: if combined is still empty, supplement from fallbackPool
-  if (combined.length < 5 && fallbackPool.length > 0) {
-    for (const t of fallbackPool) {
-      if (!seen.has(t.id)) {
-        seen.add(t.id);
-        combined.push(t);
-        if (combined.length >= 10) break;
-      }
-    }
+  // 4. Use curated fallback if network searches were empty (never general top hits)
+  if (combinedTracks.length === 0 && config.curatedFallback.length > 0) {
+    combinedTracks.push(...config.curatedFallback);
   }
 
-  if (!coverUrl && combined.length > 0) {
-    coverUrl = pickCover(combined);
-  }
+  const coverUrl = matchingArtists[0]?.imageUrl || pickCover(combinedTracks);
 
-  const featuredArtists = Array.from(
-    new Set(combined.flatMap((t) => t.artists.map((a) => a.name)))
+  const featuredNames = Array.from(
+    new Set(combinedTracks.flatMap((t) => t.artists.map((a) => a.name)))
   ).slice(0, 3);
 
-  const description = featuredArtists.length > 0
-    ? `Spotify ${formattedGenre} Radio • With ${featuredArtists.join(', ')} and more`
-    : `Imported Spotify ${formattedGenre} Radio station`;
+  const description = featuredNames.length > 0
+    ? `Authentic ${config.title} • Featuring ${featuredNames.join(', ')} and more`
+    : `Pure ${config.title} station`;
 
   return {
-    tracks: combined,
-    coverUrl,
+    id: config.id,
+    title: config.title,
     description,
+    imageUrl: coverUrl,
+    badge: config.badge,
+    tracks: combinedTracks,
   };
-}
-
-/**
- * Extracts 4 distinct genres from the user's top artists.
- */
-function extract4DistinctGenres(allArtists: ArtistInfo[]): Array<{ genre: string; artists: ArtistInfo[] }> {
-  const genreTally = new Map<string, { count: number; artists: ArtistInfo[] }>();
-
-  for (const artist of allArtists) {
-    for (const raw of artist.genres || []) {
-      const g = raw.trim().toLowerCase();
-      if (!g) continue;
-      if (!genreTally.has(g)) {
-        genreTally.set(g, { count: 0, artists: [] });
-      }
-      const entry = genreTally.get(g)!;
-      entry.count += 1;
-      if (!entry.artists.some((a) => a.id === artist.id)) {
-        entry.artists.push(artist);
-      }
-    }
-  }
-
-  const sorted = Array.from(genreTally.entries()).sort((a, b) => b[1].count - a[1].count);
-  const selected: Array<{ genre: string; artists: ArtistInfo[] }> = [];
-
-  for (const [genre, data] of sorted) {
-    if (selected.length >= 4) break;
-
-    // Check if this genre is too similar to an already selected genre
-    const words = genre.split(/\s+/);
-    const isTooSimilar = selected.some((s) => {
-      const sWords = s.genre.split(/\s+/);
-      const sharedWords = words.filter((w) => w.length > 2 && sWords.includes(w));
-      return sharedWords.length >= Math.min(words.length, sWords.length);
-    });
-
-    if (!isTooSimilar) {
-      selected.push({ genre, artists: data.artists });
-    }
-  }
-
-  // If still fewer than 4 distinct genres, pull distinct ones from defaults or general terms
-  const defaults = ['rock', 'pop', 'indie', 'acoustic', 'hip hop', 'r&b'];
-  for (const d of defaults) {
-    if (selected.length >= 4) break;
-    if (!selected.some((s) => s.genre.includes(d))) {
-      selected.push({
-        genre: d,
-        artists: allArtists.filter((a) => a.genres?.some((g) => g.includes(d))),
-      });
-    }
-  }
-
-  return selected.slice(0, 4);
 }
 
 // ── Main handler ──────────────────────────────────────────────────────────────
@@ -306,42 +282,41 @@ export async function GET() {
 
     const playlists: RecommendedPlaylist[] = [];
 
-    // ── Option 1: "Your Top Hits" ───────────────────────────────────────────
+    // ── Option 1: "Your Top Hits" (Dedicated top hits playlist) ─────────────
     if (topTracks.length > 0) {
       playlists.push({
         id: 'playlist-top-hits',
         title: 'Your Top Hits',
-        description: 'Your most played tracks and personal favorites',
+        description: 'Your personal top favorites and most played tracks across all genres',
         imageUrl: pickCover(topTracks),
         badge: 'TOP PICKS',
         tracks: topTracks.slice(0, 25),
       });
     }
 
-    // ── Options 2 to 5: 4 Different Genre Radio Stations ────────────────────
-    const top4Genres = extract4DistinctGenres(topArtists);
-
-    const genreRadioPromises = top4Genres.map(async ({ genre, artists }) => {
-      const formatted = formatGenreTitle(genre);
-      const radioData = await importSpotifyGenreRadio(
-        accessToken,
-        genre,
-        artists,
-        topTracks,
-        30
-      );
-
+    // ── Classify and Select 4 Distinct Genres Based on User Listening ────────
+    // Score each genre by how many of user's top artists match it
+    const scoredGenres = GENRE_CATALOG.map((config) => {
+      const matchingArtists = topArtists.filter((a) => artistMatchesGenre(a, config));
       return {
-        id: `genre-radio-${genre.replace(/[^a-zA-Z0-9]/g, '-')}`,
-        title: `${formatted} Radio`,
-        description: radioData.description,
-        imageUrl: radioData.coverUrl || pickCover(radioData.tracks) || (topArtists[0]?.imageUrl ?? ''),
-        badge: 'GENRE RADIO',
-        tracks: radioData.tracks.length > 0 ? radioData.tracks : (topTracks.length > 0 ? topTracks : MOCK_TRACKS),
+        config,
+        matchingArtists,
+        score: matchingArtists.length,
       };
     });
 
-    const genreStations = await Promise.all(genreRadioPromises);
+    // Sort by matching artist count (genres user actually listens to rank highest)
+    scoredGenres.sort((a, b) => b.score - a.score);
+
+    // Pick top 4 genre configs
+    const top4GenreConfigs = scoredGenres.slice(0, 4);
+
+    // Build each genre station strictly adhering to its genre
+    const genreStationPromises = top4GenreConfigs.map(({ config, matchingArtists }) =>
+      buildAccurateGenreStation(accessToken, config, matchingArtists)
+    );
+
+    const genreStations = await Promise.all(genreStationPromises);
     playlists.push(...genreStations);
 
     const finalPlaylists = playlists.length > 0 ? playlists : buildMockPlaylists();
@@ -351,13 +326,13 @@ export async function GET() {
       stations: finalPlaylists,
     });
   } catch (error) {
-    console.error('[radio-stations] Error importing genre radio stations:', error);
+    console.error('[radio-stations] Error classifying genre stations:', error);
     const mock = buildMockPlaylists();
     return NextResponse.json({ playlists: mock, stations: mock });
   }
 }
 
-// ── Curated High-Quality Mock Fallbacks ────────────────────────────────────────
+// ── Clean Curated Mock Fallbacks ──────────────────────────────────────────────
 function buildMockPlaylists(): RecommendedPlaylist[] {
   return [
     {
@@ -370,35 +345,35 @@ function buildMockPlaylists(): RecommendedPlaylist[] {
     },
     {
       id: 'mock-genre-rock',
-      title: 'Indie & Rock Radio',
-      description: "Spotify's official Indie & Rock Radio • With M83 and more",
+      title: 'Rock & Alternative Radio',
+      description: 'Authentic Rock Radio • With M83 and iconic alternative tracks',
       imageUrl: MOCK_TRACKS[2]?.album?.images?.[0]?.url || '',
-      badge: 'GENRE RADIO',
-      tracks: [MOCK_TRACKS[2], MOCK_TRACKS[1], MOCK_TRACKS[3]],
+      badge: 'ROCK RADIO',
+      tracks: [MOCK_TRACKS[2], MOCK_TRACKS[1]],
     },
     {
       id: 'mock-genre-pop',
       title: 'Pop Hits Radio',
-      description: "Spotify's official Pop Radio • With The Weeknd, The Kid LAROI and more",
+      description: 'Pure Pop Hits • Featuring The Weeknd, The Kid LAROI and more',
       imageUrl: MOCK_TRACKS[1]?.album?.images?.[0]?.url || '',
-      badge: 'GENRE RADIO',
+      badge: 'POP RADIO',
       tracks: [MOCK_TRACKS[1], MOCK_TRACKS[3], MOCK_TRACKS[4]],
+    },
+    {
+      id: 'mock-genre-indie',
+      title: 'Indie & Alt Radio',
+      description: 'Pure Indie sounds • Featuring M83, The Kid LAROI and more',
+      imageUrl: MOCK_TRACKS[3]?.album?.images?.[0]?.url || '',
+      badge: 'INDIE RADIO',
+      tracks: [MOCK_TRACKS[2], MOCK_TRACKS[3]],
     },
     {
       id: 'mock-genre-acoustic',
       title: 'Acoustic & Chill Radio',
-      description: "Spotify's official Acoustic Radio • With Ed Sheeran and more",
+      description: 'Acoustic & Relaxed Radio • Featuring Ed Sheeran and more',
       imageUrl: MOCK_TRACKS[4]?.album?.images?.[0]?.url || '',
-      badge: 'GENRE RADIO',
-      tracks: [MOCK_TRACKS[4], MOCK_TRACKS[2], MOCK_TRACKS[3]],
-    },
-    {
-      id: 'mock-genre-hiphop',
-      title: 'Modern Hip-Hop Radio',
-      description: "Spotify's official Hip-Hop Radio • Top trending streams",
-      imageUrl: MOCK_TRACKS[3]?.album?.images?.[0]?.url || '',
-      badge: 'GENRE RADIO',
-      tracks: [MOCK_TRACKS[3], MOCK_TRACKS[1], MOCK_TRACKS[4]],
+      badge: 'ACOUSTIC RADIO',
+      tracks: [MOCK_TRACKS[4], MOCK_TRACKS[2]],
     },
   ];
 }
