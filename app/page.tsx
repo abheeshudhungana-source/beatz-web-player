@@ -229,21 +229,22 @@ export default function Home() {
     return (uniqueTracks.length ? uniqueTracks : MOCK_TRACKS).slice(0, 8);
   }, [currentTrack, queue.currentlyPlaying, queue.upcomingTracks]);
   const topArtists = useMemo(() => {
-    const seenArtistIds = new Set<string>();
-    const uniqueArtists = MOCK_TRACKS.flatMap((track) => track.artists.map((artist) => ({ artist, track }))).filter(({ artist }) => {
-      if (!artist?.id || seenArtistIds.has(artist.id)) return false;
-      seenArtistIds.add(artist.id);
+    const sourceTracks = [...jumpBackTracks, ...MOCK_TRACKS];
+    const seenArtistNames = new Set<string>();
+    const uniqueArtists = sourceTracks.flatMap((track) => track.artists.map((artist) => ({ artist, track }))).filter(({ artist }) => {
+      if (!artist?.name || seenArtistNames.has(artist.name.toLowerCase())) return false;
+      seenArtistNames.add(artist.name.toLowerCase());
       return true;
     });
     if (!uniqueArtists.length) return [];
-    return Array.from({ length: 10 }, (_, index) => {
+    return Array.from({ length: Math.min(10, Math.max(uniqueArtists.length, 6)) }, (_, index) => {
       const item = uniqueArtists[index % uniqueArtists.length];
       return {
         ...item,
         cardId: `${item?.artist?.id || 'artist'}-${index}`,
       };
     });
-  }, []);
+  }, [jumpBackTracks]);
 
   const lyricTrackId = currentTrack?.id;
   const lyricTrackName = currentTrack?.name;
