@@ -210,7 +210,67 @@ export default function Home() {
     const uniqueTracks = Array.from(new Map(tracks.map((track) => [track.id, track] as const)).values());
     return (uniqueTracks.length ? uniqueTracks : MOCK_TRACKS).slice(0, 8);
   }, [currentTrack, queue.currentlyPlaying, queue.upcomingTracks]);
+
+  // Live Spotify Top Artists state for the authenticated user
+  const [liveTopArtists, setLiveTopArtists] = useState<Array<{ id: string; name: string; imageUrl: string }>>([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    fetch('/api/spotify/top-artists')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (isMounted && data && Array.isArray(data.artists) && data.artists.length > 0) {
+          setLiveTopArtists(data.artists);
+        }
+      })
+      .catch((err) => console.warn('[top-artists] Fallback to local catalog:', err));
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isAuthenticated]);
+
+  // Handle clicking an artist: find or search their track and play immediately
+  const handlePlayArtist = async (artistName: string) => {
+    // Check if we already have a track by this artist locally
+    const localMatch = [...jumpBackTracks, ...MOCK_TRACKS].find((t) =>
+      t.artists.some((a) => a.name.toLowerCase() === artistName.toLowerCase())
+    );
+
+    if (localMatch) {
+      playTrack(localMatch);
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/spotify/search?q=${encodeURIComponent(artistName)}&limit=1`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.tracks && data.tracks.length > 0) {
+          playTrack(data.tracks[0]);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to play artist track:', err);
+    }
+  };
+
   const topArtists = useMemo(() => {
+    // If live authentic artists are available from Spotify API, use them!
+    if (liveTopArtists.length > 0) {
+      return liveTopArtists.map((artist, index) => ({
+        artist: {
+          id: artist.id,
+          name: artist.name,
+          uri: `spotify:artist:${artist.id}`,
+          images: artist.imageUrl ? [{ url: artist.imageUrl, height: 300, width: 300 }] : [],
+        },
+        imageUrl: artist.imageUrl,
+        cardId: `${artist.id}-${index}`,
+      }));
+    }
+
+    // Fallback: extract from played / mock tracks
     const sourceTracks = [...jumpBackTracks, ...MOCK_TRACKS];
     const seenArtistNames = new Set<string>();
     const uniqueArtists = sourceTracks.flatMap((track) => track.artists.map((artist) => ({ artist, track }))).filter(({ artist }) => {
@@ -222,11 +282,12 @@ export default function Home() {
     return Array.from({ length: Math.min(10, Math.max(uniqueArtists.length, 6)) }, (_, index) => {
       const item = uniqueArtists[index % uniqueArtists.length];
       return {
-        ...item,
+        artist: item.artist,
+        imageUrl: item.artist?.images?.[0]?.url || item.track.album?.images?.[0]?.url || '',
         cardId: `${item?.artist?.id || 'artist'}-${index}`,
       };
     });
-  }, [jumpBackTracks]);
+  }, [liveTopArtists, jumpBackTracks]);
 
   const lyricTrackId = currentTrack?.id;
   const lyricTrackName = currentTrack?.name;
@@ -638,20 +699,20 @@ export default function Home() {
         <section className="space-y-4">
           <h2 className="text-xl font-bold text-white">Your Top Artists</h2>
           <div className="no-scrollbar flex gap-5 overflow-x-auto scroll-smooth pb-2">
-            {topArtists.map(({ artist, track, cardId }) => {
-              const artistImageUrl = artist.images?.[0]?.url ?? track.album?.images?.[0]?.url;
+            {topArtists.map(({ artist, imageUrl, cardId }) => {
+              const displayImageUrl = imageUrl || artist.images?.[0]?.url;
 
               return (
                 <button
                   key={cardId}
                   type="button"
-                  onClick={() => playTrack(track)}
+                  onClick={() => handlePlayArtist(artist.name)}
                   className="group flex w-32 shrink-0 flex-col items-center text-center"
                   aria-label={`Play ${artist.name}`}
                 >
                   <div className="relative aspect-square w-full overflow-hidden rounded-full bg-spotify-elevated shadow-lg shadow-black/20 ring-1 ring-white/10 transition group-hover:ring-spotify-green/70">
                     <ArtworkImage
-                      src={artist.images?.[0]?.url || track.album?.images?.[0]?.url}
+                      src={displayImageUrl}
                       alt={artist.name}
                       className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
                     />
