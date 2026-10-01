@@ -61,9 +61,13 @@ const CURATED_PLAYLISTS = [
 ];
 
 function ArtworkImage({ src, alt, className }: { src?: string; alt: string; className: string }) {
-  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const [hasError, setHasError] = useState(false);
 
-  if (!src || failedUrl === src) {
+  useEffect(() => {
+    setHasError(false);
+  }, [src]);
+
+  if (!src || hasError) {
     return (
       <span
         className={`flex shrink-0 items-center justify-center bg-[#242424] text-zinc-500 ${className}`}
@@ -76,7 +80,15 @@ function ArtworkImage({ src, alt, className }: { src?: string; alt: string; clas
     );
   }
 
-  return <img src={src} alt={alt} className={className} onError={() => setFailedUrl(src)} />;
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className={className}
+      referrerPolicy="no-referrer"
+      onError={() => setHasError(true)}
+    />
+  );
 }
 
 function parseSyncedLyrics(syncedLyrics: string): LyricLine[] {
@@ -742,7 +754,7 @@ export default function Home() {
         <div className="flex min-w-0 items-center gap-3 w-[22%]">
           <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-lg border border-white/10 bg-spotify-elevated text-zinc-300 shadow-sm shadow-black/20">
             {currentTrack?.album?.images?.[0]?.url ? (
-              <img src={currentTrack.album.images[0].url} alt={currentTrack.name} className="h-full w-full object-cover" />
+              <img src={currentTrack.album.images[0].url} alt={currentTrack.name} className="h-full w-full object-cover" referrerPolicy="no-referrer" />
             ) : (
               <Music className="h-6 w-6 text-spotify-green" />
             )}
