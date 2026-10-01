@@ -437,7 +437,7 @@ export default function Home() {
               aria-label="Search"
             >
               <Search className={`h-5 w-5 shrink-0 ${activeNav === 'search' ? 'text-spotify-green' : 'group-hover:text-spotify-green'}`} />
-              <span className="pointer-events-none absolute left-full z-30 ml-3 translate-x-1 whitespace-nowrap rounded-md border border-spotify-border bg-spotify-elevated px-3 py-2 text-xs text-white opacity-0 shadow-lg transition-all duration-200 group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100">Search</span>
+              <span className="pointer-events-none absolute left-full z-30 ml-3 translate-x-1 whitespace-nowrap rounded-md border border-spotify-border bg-spotify-elevated px-3 py-2 text-xs text-white opacity-0 shadow-lg transition-all duration-200 group-hover:translate-x-0 group-hover:opacity-100">Search</span>
             </button>
           </nav>
         </aside>

@@ -115,13 +115,13 @@ export default function SearchPage() {
           <nav className="flex h-full w-full flex-col items-center justify-center gap-3">
             <Link href="/search" className="group relative flex h-12 w-full items-center justify-center rounded-xl bg-spotify-elevated text-white" aria-current="page" aria-label="Search">
               <Search className="h-5 w-5 text-spotify-green" />
-              <span className="pointer-events-none absolute left-full z-30 ml-3 whitespace-nowrap rounded-md border border-spotify-border bg-spotify-elevated px-3 py-2 text-xs text-white shadow-lg">Search</span>
+              <span className="pointer-events-none absolute left-full z-30 ml-3 whitespace-nowrap rounded-md border border-spotify-border bg-spotify-elevated px-3 py-2 text-xs text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100">Search</span>
             </Link>
           </nav>
         </aside>
 
         <main className="min-w-0 flex-1 overflow-y-auto">
-          <div className="mx-auto max-w-[1500px] space-y-10 px-5 pb-32 pt-8 sm:px-8 lg:px-12">
+          <div className="mx-auto max-w-[1500px] px-5 pb-32 pt-8 sm:px-8 lg:px-12">
             <form onSubmit={handleSubmit} className="relative max-w-3xl">
               <Search className="pointer-events-none absolute left-5 top-1/2 h-5 w-5 -translate-y-1/2 text-zinc-400" />
               <input
@@ -137,7 +137,7 @@ export default function SearchPage() {
             </form>
 
             {query.trim() ? (
-              <section className="space-y-5">
+              <section className="mt-10 space-y-5">
                 <div className="flex items-end justify-between gap-4">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-spotify-subtext">Search results</p>
@@ -169,8 +169,8 @@ export default function SearchPage() {
               </section>
             ) : (
               <>
-                <section className="space-y-4">
-                  <div className="flex items-end justify-between gap-4">
+                <section className="mt-10 space-y-4">
+                  <div className="flex items-center justify-between gap-4">
                     <h1 className="text-xl font-bold text-white">Recent Searches</h1>
                     <span className="text-xs text-spotify-subtext">Your shortcuts</span>
                   </div>
@@ -187,7 +187,7 @@ export default function SearchPage() {
                   </div>
                 </section>
 
-                <section className="space-y-4">
+                <section className="mt-10 space-y-4">
                   <h2 className="text-xl font-bold text-white">Browse All</h2>
                   <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-4">
                     {BROWSE_CATEGORIES.map((category, index) => {
@@ -197,7 +197,7 @@ export default function SearchPage() {
                           <span className="relative z-10 block max-w-[75%] text-lg font-bold leading-tight text-white">{category.name}</span>
                           <span className="absolute -bottom-2 -right-3 h-24 w-24 rotate-[18deg] overflow-hidden rounded-md bg-black/20 shadow-xl transition duration-300 group-hover:-translate-y-2 group-hover:-rotate-6">
                             <Music className="absolute inset-0 m-auto h-8 w-8 text-white/60" />
-                            {track.album?.images?.[0]?.url && <img src={track.album.images[0].url} alt="" onError={(event) => { event.currentTarget.style.display = 'none'; }} className="relative h-full w-full object-cover" />}
+                            {track.album?.images?.[0]?.url && <img src={track.album.images[0].url} alt="" onError={(event) => { event.currentTarget.style.display = 'none'; }} className="relative h-full w-full object-cover shadow-lg shadow-black/40" />}
                           </span>
                         </button>
                       );
