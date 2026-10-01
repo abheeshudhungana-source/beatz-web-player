@@ -21,14 +21,12 @@ import {
   Repeat1,
   Pause,
   MoreHorizontal,
-  Mic2,
   Share2,
   Copy,
   Volume2,
   VolumeX,
   Plus,
   Check,
-  X,
 } from 'lucide-react';
 
 function formatDuration(durationMs: number): string {
@@ -36,11 +34,6 @@ function formatDuration(durationMs: number): string {
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-}
-
-interface LyricLine {
-  text: string;
-  startMs: number;
 }
 
 const CURATED_PLAYLISTS = [
@@ -87,42 +80,13 @@ function ArtworkImage({ src, alt, className }: { src?: string; alt: string; clas
   );
 }
 
-function parseSyncedLyrics(syncedLyrics: string): LyricLine[] {
-  const lyricLines: LyricLine[] = [];
-
-  for (const rawLine of syncedLyrics.split(/\r?\n/)) {
-    const timestampPattern = /\[(\d{1,2}):(\d{2})(?:\.(\d{1,3}))?\]/g;
-    const timestamps: number[] = [];
-    let match: RegExpExecArray | null;
-
-    while ((match = timestampPattern.exec(rawLine)) !== null) {
-      const fractionalMs = Number((match[3] ?? '').padEnd(3, '0').slice(0, 3));
-      timestamps.push((Number(match[1]) * 60 + Number(match[2])) * 1000 + fractionalMs);
-    }
-
-    const text = rawLine.replace(timestampPattern, '').trim();
-    if (text) {
-      for (const startMs of timestamps) {
-        lyricLines.push({ text, startMs });
-      }
-    }
-  }
-
-  return lyricLines.sort((first, second) => first.startMs - second.startMs);
-}
-
 export default function Home() {
   const router = useRouter();
   const { isAuthenticated, isLoading, user, accessToken, login, logout } = useSpotifyAuth();
   const [addedTrackId, setAddedTrackId] = useState<string | null>(null);
-  const [lyricsForCurrentTrack, setLyricsForCurrentTrack] = useState<LyricLine[]>([]);
-  const [lyricsStatus, setLyricsStatus] = useState<'idle' | 'loading' | 'available' | 'unavailable'>('idle');
-  const [isLyricsOpen, setIsLyricsOpen] = useState(false);
   const [isTrackOptionsOpen, setIsTrackOptionsOpen] = useState(false);
   const [activeNav, setActiveNav] = useState<'home' | 'search'>('home');
   const mainContentRef = useRef<HTMLElement | null>(null);
-  const lyricsViewportRef = useRef<HTMLDivElement | null>(null);
-  const activeLyricRef = useRef<HTMLParagraphElement | null>(null);
   const lastVolumeRef = useRef<number>(0.8);
   const activeUser = user ?? {
     displayName: 'Demo User',
@@ -316,89 +280,6 @@ export default function Home() {
     });
   }, [liveTopArtists, jumpBackTracks]);
 
-  const lyricTrackId = currentTrack?.id;
-  const lyricTrackName = currentTrack?.name;
-  const lyricArtistName = currentTrack?.artists?.[0]?.name;
-  const lyricAlbumName = currentTrack?.album?.name;
-  const lyricDurationMs = currentTrack?.durationMs;
-
-  useEffect(() => {
-    if (!lyricTrackId || !lyricTrackName || !lyricArtistName) {
-      setLyricsForCurrentTrack([]);
-      setLyricsStatus('idle');
-      return;
-    }
-
-    const controller = new AbortController();
-    const params = new URLSearchParams({
-      track_name: lyricTrackName,
-      artist_name: lyricArtistName,
-      duration: String(Math.round((lyricDurationMs ?? 0) / 1000)),
-    });
-    if (lyricAlbumName) {
-      params.set('album_name', lyricAlbumName);
-    }
-
-    setLyricsForCurrentTrack([]);
-    setLyricsStatus('loading');
-
-    const lookupTimeout = window.setTimeout(async () => {
-      try {
-        const response = await fetch(`/api/lyrics?${params.toString()}`, { signal: controller.signal });
-        if (!response.ok) {
-          throw new Error('Lyrics lookup failed');
-        }
-
-        const result = (await response.json()) as { syncedLyrics?: string | null };
-        const lines = result.syncedLyrics ? parseSyncedLyrics(result.syncedLyrics) : [];
-        setLyricsForCurrentTrack(lines);
-        setLyricsStatus(lines.length ? 'available' : 'unavailable');
-      } catch {
-        if (!controller.signal.aborted) {
-          setLyricsForCurrentTrack([]);
-          setLyricsStatus('unavailable');
-        }
-      }
-    }, 300);
-
-    return () => {
-      window.clearTimeout(lookupTimeout);
-      controller.abort();
-    };
-  }, [lyricTrackId, lyricTrackName, lyricArtistName, lyricAlbumName, lyricDurationMs]);
-
-  const activeLyricIndex = useMemo(() => {
-    if (!lyricsForCurrentTrack.length) {
-      return -1;
-    }
-
-    for (let index = lyricsForCurrentTrack.length - 1; index >= 0; index -= 1) {
-      if (progressMs >= lyricsForCurrentTrack[index].startMs) {
-        return index;
-      }
-    }
-    return -1;
-  }, [lyricsForCurrentTrack, progressMs]);
-
-  useEffect(() => {
-    const viewport = lyricsViewportRef.current;
-    const activeLine = activeLyricRef.current;
-
-    if (!viewport || !activeLine || activeLyricIndex < 0) {
-      return;
-    }
-
-    const viewportBounds = viewport.getBoundingClientRect();
-    const lineBounds = activeLine.getBoundingClientRect();
-    const centeredScrollTop =
-      viewport.scrollTop +
-      lineBounds.top -
-      viewportBounds.top -
-      (viewport.clientHeight - lineBounds.height) / 2;
-
-    viewport.scrollTo({ top: centeredScrollTop, behavior: 'smooth' });
-  }, [activeLyricIndex, currentTrack?.id]);
-
   const progressPercent = durationMs > 0 ? Math.min((progressMs / durationMs) * 100, 100) : 0;
   const currentProgressLabel = formatDuration(progressMs);
   const durationLabel = formatDuration(durationMs || 232000);
@@ -464,7 +345,7 @@ export default function Home() {
   return (
     <div className="flex h-screen flex-col bg-spotify-dark text-white select-none">
       {/* Top Header */}
-      <header className={`z-10 flex h-16 shrink-0 items-center justify-between border-b border-spotify-border bg-spotify-surface/80 px-6 backdrop-blur transition-[margin] duration-300 ${isLyricsOpen ? 'md:mr-80 lg:mr-96' : ''}`}>
+      <header className="z-10 flex h-16 shrink-0 items-center justify-between border-b border-spotify-border bg-spotify-surface/80 px-6 backdrop-blur">
         <div className="flex items-center gap-3">
         <button
             type="button"
@@ -538,7 +419,7 @@ export default function Home() {
         </div>
       </header>
 
-      <div className={`flex min-h-0 flex-1 transition-[margin] duration-300 ${isLyricsOpen ? 'md:mr-80 lg:mr-96' : ''}`}>
+      <div className="flex min-h-0 flex-1">
         <aside className="relative z-20 flex h-full w-16 shrink-0 border-r border-spotify-border bg-[#101010] px-2" aria-label="Primary navigation">
           <nav className="flex h-full w-full flex-col justify-center gap-3">
             <button
@@ -761,75 +642,6 @@ export default function Home() {
           </div>
         </main>
       </div>
-
-      <aside
-        id="lyrics-panel"
-        aria-label="Lyrics panel"
-        aria-hidden={!isLyricsOpen}
-        className={`fixed right-0 top-0 bottom-24 z-30 flex w-[min(100vw,20rem)] flex-col border-l border-spotify-border bg-spotify-surface p-5 shadow-2xl shadow-black/40 transition-[transform,opacity] duration-300 md:w-80 lg:w-96 ${
-          isLyricsOpen ? 'translate-x-0 opacity-100' : 'pointer-events-none translate-x-full opacity-0'
-        }`}
-      >
-        <div className="flex shrink-0 items-center justify-between">
-          <div>
-            <h3 className="text-base font-bold text-white">Lyrics</h3>
-            <p className="mt-0.5 text-[11px] text-spotify-subtext">Now playing</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setIsLyricsOpen(false)}
-            className="rounded-full p-2 text-zinc-400 transition hover:bg-spotify-elevated hover:text-white"
-            title="Close lyrics"
-            aria-label="Close lyrics panel"
-            tabIndex={isLyricsOpen ? 0 : -1}
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        <div className="mt-4 flex min-h-0 flex-1 flex-col rounded-2xl border border-spotify-border bg-spotify-elevated/35 p-4">
-          <div className="mb-4 flex shrink-0 items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-spotify-elevated">
-              {currentTrack?.album?.images?.[0]?.url ? (
-                <img src={currentTrack.album.images[0].url} alt={currentTrack.name} className="h-full w-full object-cover" />
-              ) : (
-                <Music className="h-5 w-5 text-spotify-green" />
-              )}
-            </div>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-white">{currentTrack?.name ?? 'No track selected'}</p>
-              <p className="truncate text-[11px] text-spotify-subtext">{currentTrack?.artists?.[0]?.name ?? 'Artist unavailable'}</p>
-            </div>
-          </div>
-
-          <div ref={lyricsViewportRef} className="min-h-0 flex-1 space-y-2 overflow-y-auto scroll-smooth pr-2 text-sm leading-7">
-            {lyricsStatus === 'loading' && <p className="text-zinc-500">Finding synchronized lyrics...</p>}
-            {lyricsStatus === 'unavailable' && (
-              <p className="text-zinc-500">Synchronized lyrics are not available for this track.</p>
-            )}
-            {lyricsStatus === 'idle' && <p className="text-zinc-500">Select a track to view its lyrics.</p>}
-            {lyricsForCurrentTrack.map((line, index) => {
-              const isActive = index === activeLyricIndex;
-
-              return (
-                <p
-                  key={`${currentTrack?.id ?? 'track'}-${line.startMs}-${index}`}
-                  ref={isActive ? activeLyricRef : null}
-                  aria-current={isActive ? 'true' : undefined}
-                  className={[
-                    'rounded-r-md border-l-2 py-1 pl-3 pr-2 transition-colors duration-200',
-                    isActive
-                      ? 'border-spotify-green/70 bg-transparent font-bold text-white'
-                      : 'border-transparent text-zinc-400',
-                  ].join(' ')}
-                >
-                  {line.text}
-                </p>
-              );
-            })}
-          </div>
-        </div>
-      </aside>
 
     </div>
   );
