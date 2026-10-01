@@ -572,35 +572,49 @@ export default function Home() {
         <section className="space-y-4">
           <div className="flex items-baseline gap-3">
             <h2 className="text-xl font-bold text-white">Made For You</h2>
-            {radioStations.length > 0 && (
-              <span className="text-xs text-spotify-subtext">Personalized playlists</span>
-            )}
+            <span className="text-xs text-spotify-subtext">Your Top Hits &amp; Spotify Genre Radios</span>
           </div>
           <div className="no-scrollbar flex gap-5 overflow-x-auto scroll-smooth pb-2">
             {(radioStations.length > 0 ? radioStations : [
               {
-                id: 'placeholder-mix-1',
-                title: 'Daily Mix: Synth & Indie',
-                description: 'With M83, The Weeknd and more',
+                id: 'placeholder-top-hits',
+                title: 'Your Top Hits',
+                description: 'Your personal top favorites and most played tracks',
+                imageUrl: MOCK_TRACKS[1]?.album?.images?.[0]?.url ?? '',
+                badge: 'TOP PICKS',
+                tracks: [MOCK_TRACKS[1], MOCK_TRACKS[2], MOCK_TRACKS[3]],
+              },
+              {
+                id: 'placeholder-genre-1',
+                title: 'Indie & Rock Radio',
+                description: 'Spotify official Indie & Rock Radio',
                 imageUrl: MOCK_TRACKS[2]?.album?.images?.[0]?.url ?? '',
-                badge: 'DAILY MIX 1',
+                badge: 'GENRE RADIO',
                 tracks: [MOCK_TRACKS[2], MOCK_TRACKS[1], MOCK_TRACKS[3]],
               },
               {
-                id: 'placeholder-mix-2',
-                title: 'Daily Mix: Pop Hits',
-                description: 'With The Kid LAROI, Justin Bieber and more',
-                imageUrl: MOCK_TRACKS[3]?.album?.images?.[0]?.url ?? '',
-                badge: 'DAILY MIX 2',
-                tracks: [MOCK_TRACKS[3], MOCK_TRACKS[4], MOCK_TRACKS[1]],
+                id: 'placeholder-genre-2',
+                title: 'Pop Hits Radio',
+                description: 'Spotify official Pop Radio station',
+                imageUrl: MOCK_TRACKS[1]?.album?.images?.[0]?.url ?? '',
+                badge: 'GENRE RADIO',
+                tracks: [MOCK_TRACKS[1], MOCK_TRACKS[3], MOCK_TRACKS[4]],
               },
               {
-                id: 'placeholder-mix-3',
-                title: 'Acoustic & Chill Mix',
-                description: 'With Ed Sheeran and similar sounds',
+                id: 'placeholder-genre-3',
+                title: 'Acoustic & Chill Radio',
+                description: 'Spotify official Acoustic Radio station',
                 imageUrl: MOCK_TRACKS[4]?.album?.images?.[0]?.url ?? '',
-                badge: 'CHILL MIX',
+                badge: 'GENRE RADIO',
                 tracks: [MOCK_TRACKS[4], MOCK_TRACKS[2], MOCK_TRACKS[3]],
+              },
+              {
+                id: 'placeholder-genre-4',
+                title: 'Modern Hip-Hop Radio',
+                description: 'Spotify official Hip-Hop Radio station',
+                imageUrl: MOCK_TRACKS[3]?.album?.images?.[0]?.url ?? '',
+                badge: 'GENRE RADIO',
+                tracks: [MOCK_TRACKS[3], MOCK_TRACKS[1], MOCK_TRACKS[4]],
               },
             ]).map((station) => (
               <button
