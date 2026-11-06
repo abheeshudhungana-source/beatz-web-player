@@ -276,7 +276,8 @@ export function mapSpotifyTrackDto(rawTrack: any): SpotifyTrack {
 export async function searchTracks(
   query: string,
   accessToken: string | null,
-  limit: number = 10
+  limit: number = 10,
+  allowMockFallback: boolean = true
 ): Promise<SpotifyTrack[]> {
   // Input sanitization & security bounds
   const sanitizedQuery = (query || '').trim().slice(0, 100);
@@ -288,6 +289,7 @@ export async function searchTracks(
 
   // If no access token (e.g. offline or unauthenticated UI test), filter mock tracks
   if (!accessToken) {
+    if (!allowMockFallback) throw new Error('Spotify authentication required.');
     const qLower = sanitizedQuery.toLowerCase();
     const filtered = MOCK_TRACKS.filter(
       (t) =>
@@ -303,6 +305,8 @@ export async function searchTracks(
   if (res.data && res.data.tracks && Array.isArray(res.data.tracks.items)) {
     return res.data.tracks.items.map(mapSpotifyTrackDto);
   }
+
+  if (!allowMockFallback) throw new Error('Spotify search is unavailable.');
 
   // Fallback to mock search results if rate-limited or error occurs
   console.warn(`[searchTracks] Falling back to mock catalog for query: "${sanitizedQuery}"`);

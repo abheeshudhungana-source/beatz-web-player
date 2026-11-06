@@ -58,7 +58,7 @@ export default function BeatzChatDrawer({ isOpen, onClose }: BeatzChatDrawerProp
     {
       id: 'welcome',
       sender: 'ai',
-      text: "👋 Hey there! I'm your **Beatz AI Co-Pilot**, powered by Google Gemini. Ask me to change your musical vibe, queue up underground gems, or uncover trivia about what's currently playing!",
+      text: "👋 Hey there! I'm your **Beatz AI Co-Pilot**, powered by your local Codex CLI. Ask me to change your musical vibe, queue up underground gems, or uncover trivia about what's currently playing!",
       followUpOptions: ['Recommend Nepali acoustic songs', 'Queue 3 upbeat tracks', 'Deep focus coding beats'],
       timestamp: new Date(),
     },
@@ -107,6 +107,9 @@ export default function BeatzChatDrawer({ isOpen, onClose }: BeatzChatDrawerProp
       });
 
       const data = await response.json();
+      if (!response.ok) {
+        throw new Error(typeof data.error === 'string' ? data.error : 'Chat is unavailable. Please try again.');
+      }
 
       if (data.searchedArtist) {
         setLastArtist(data.searchedArtist);
@@ -141,13 +144,12 @@ export default function BeatzChatDrawer({ isOpen, onClose }: BeatzChatDrawerProp
         }
       }
     } catch (err) {
-      console.error('Chat error:', err);
       setMessages((prev) => [
         ...prev,
         {
           id: `ai-err-${Date.now()}`,
           sender: 'ai',
-          text: "I had a quick hiccup reaching Gemini, but you can try selecting one of the quick vibe chips below!",
+          text: err instanceof Error ? err.message : 'Could not reach Beatz chat. Please try again.',
           timestamp: new Date(),
         },
       ]);
@@ -194,7 +196,7 @@ export default function BeatzChatDrawer({ isOpen, onClose }: BeatzChatDrawerProp
                 <div className="flex items-center gap-2">
                   <h2 className="text-sm font-bold text-white">Beatz AI Co-Pilot</h2>
                   <span className="text-[10px] uppercase tracking-wider bg-spotify-green/20 text-spotify-green px-1.5 py-0.5 rounded font-bold">
-                    Gemini 1.5
+                    Codex
                   </span>
                 </div>
                 <p className="text-[11px] text-spotify-subtext">Conversational Queue &amp; Lore Engine</p>

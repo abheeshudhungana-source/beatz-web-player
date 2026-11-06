@@ -33,7 +33,7 @@ Built as part of a 1-week focused clone sprint, **Beatz** cuts through the clutt
 - **Framework:** [Next.js](https://nextjs.org/) (App Router, TypeScript)
 - **Styling:** [Tailwind CSS](https://tailwindcss.com/) + [Lucide React](https://lucide.dev/)
 - **State Management:** [Zustand](https://github.com/pmndrs/zustand)
-- **AI & Audio Engine:** Spotify Web Playback SDK + Spotify Web API + Gemini / LLM API
+- **AI & Audio Engine:** Spotify Web Playback SDK + Spotify Web API + local Codex CLI
 - **Auth:** OAuth 2.0 with PKCE
 
 ---
@@ -56,15 +56,33 @@ Fill in your credentials:
 NEXT_PUBLIC_SPOTIFY_CLIENT_ID=your_client_id
 SPOTIFY_CLIENT_SECRET=your_client_secret
 NEXT_PUBLIC_REDIRECT_URI=http://localhost:3000/api/auth/callback/spotify
-GEMINI_API_KEY=your_gemini_api_key_here
 ```
 
-### 3. Install Dependencies & Run
+### 3. Sign in to Codex
+Install a current [Codex CLI](https://developers.openai.com/codex/cli), then run:
+```bash
+codex login
+```
+Beatz uses `codex exec` with structured JSON output and your CLI login; it does not need a Gemini or OpenAI API key. Codex still needs internet access and available account usage. Spotify credentials are still required for catalog search and playback.
+
+If `codex` is not on the server's PATH, set `CODEX_BIN` in `.env.local` to its absolute executable path. `CODEX_MODEL` optionally selects a model supported by your account. The adapter ignores personal Codex configuration, disables shell/browser/app tools, uses a temporary working directory and read-only sandbox, and times out after 60 seconds. It sends only the message, current track name/artists, and previous artist/query as context. Provider errors are displayed without queuing demo tracks.
+
+This integration is for a **local Node.js server**, not Vercel/serverless hosting or a static browser export. Keep the server bound to the loopback interface; the chat route also rejects non-local hosts and cross-origin browser requests.
+
+### 4. Install Dependencies & Run
 ```bash
 npm install
-npm run dev
+npm run dev -- --hostname 127.0.0.1
 ```
 Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+### Offline adapter checks
+With Node.js 22.18+ (or Node.js 24), run `npm run test:chat`. These tests use a stub runner and make no Codex/Spotify requests. A live local chat still needs verification after signing in.
+
+### Review scope and diagnostic evidence
+The original investigation is preserved in [the chatbot diagnostic report](docs/CHATBOT_DIAGNOSIS.md), with references to the pre-migration revision. [PR #1 scope and acceptance criteria](docs/PR_1_SCOPE.md) distinguish that read-only investigation from the later user-requested local Codex migration and explicitly record the hosted-chat limitation.
+
+Codex failures return sanitized `code` values for missing CLI, authentication diagnostics, timeout, cancellation, invalid output, usage limits, and unknown execution failure. Only recognized authentication diagnostics suggest `codex login`; these categories do not establish credential expiration.
 
 ---
 
