@@ -31,7 +31,7 @@ type Runner = (args: string[], prompt: string, options: RunOptions) => Promise<s
 
 const execute: Runner = (args, prompt, { cwd, signal }) => new Promise((resolve, reject) => {
   // Let Codex use its own login; do not forward Beatz's Spotify credentials.
-  const env: NodeJS.ProcessEnv = {};
+  const env: NodeJS.ProcessEnv = { NODE_ENV: process.env.NODE_ENV };
   for (const name of ['PATH', 'HOME', 'USER', 'LOGNAME', 'TMPDIR', 'TEMP', 'TMP', 'SYSTEMROOT', 'APPDATA', 'LOCALAPPDATA', 'CODEX_HOME']) {
     if (process.env[name]) env[name] = process.env[name];
   }
