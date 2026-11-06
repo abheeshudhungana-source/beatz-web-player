@@ -65,3 +65,49 @@ test('cleans up and rejects invalid Codex output', async () => {
   }), /invalid music response/);
   await assert.rejects(access(directory), { code: 'ENOENT' });
 });
+
+test('reports distinct CLI failure categories without exposing diagnostics', async () => {
+  const { classifyCodexFailure, codexErrorResponse } = await import('../lib/codex-chat.ts');
+  const privateDiagnostic = 'synthetic-private-diagnostic';
+  const cases = [
+    [{ code: 'ENOENT' }, '', false, 'unavailable', 503],
+    [{ killed: true, signal: 'SIGKILL' }, '', false, 'timeout', 504],
+    [{ name: 'AbortError' }, '', false, 'cancelled', 499],
+    [{ killed: true, signal: 'SIGKILL' }, '', true, 'cancelled', 499],
+    [{ code: 1 }, `401 Unauthorized ${privateDiagnostic}`, false, 'auth', 503],
+    [{ code: 1 }, `429 rate limit ${privateDiagnostic}`, false, 'rate_limit', 429],
+    [{ code: 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER' }, '', false, 'invalid_output', 502],
+    [{ code: 1 }, `unrecognized CLI option ${privateDiagnostic}`, false, 'failed', 503],
+    [{ code: 1 }, `403 permission denied ${privateDiagnostic}`, false, 'failed', 503],
+  ];
+  for (const [error, stderr, aborted, code, status] of cases) {
+    const result = codexErrorResponse(classifyCodexFailure(error, stderr, aborted));
+    assert.equal(result.body.code, `codex_${code}`);
+    assert.equal(result.status, status);
+    assert(!JSON.stringify(result).includes(privateDiagnostic));
+    assert.equal(result.body.error.includes('codex login'), code === 'auth');
+  }
+  assert.equal(codexErrorResponse(new Error(privateDiagnostic)).body.code, 'codex_failed');
+});
+
+test('invalid JSON and invalid schema report invalid output instead of authentication failure', async () => {
+  const { codexErrorResponse } = await import('../lib/codex-chat.ts');
+  for (const output of ['not JSON', '{}']) {
+    try {
+      parseCodexReply(output);
+      assert.fail('Invalid output must be rejected');
+    } catch (error) {
+      const result = codexErrorResponse(error);
+      assert.equal(result.body.code, 'codex_invalid_output');
+      assert.equal(result.status, 502);
+    }
+  }
+});
+
+test('an already cancelled request does not start a CLI runner', async () => {
+  const controller = new AbortController();
+  controller.abort();
+  await assert.rejects(askCodex('hello', controller.signal, async () => {
+    assert.fail('Cancelled request must not invoke the runner');
+  }), error => error.code === 'cancelled');
+});

@@ -10,6 +10,52 @@ export interface CodexReply {
   numberOfTracks: number;
 }
 
+const CODEX_FAILURES = {
+  unavailable: { status: 503, message: 'Codex CLI was not found. Install it or check CODEX_BIN, then restart Beatz.' },
+  auth: { status: 503, message: 'Codex reported an authentication failure. Run codex login in your terminal, then retry.' },
+  timeout: { status: 504, message: 'Codex did not reply within 60 seconds. Please try again.' },
+  cancelled: { status: 499, message: 'The Codex request was cancelled.' },
+  invalid_output: { status: 502, message: 'Codex returned an invalid music response. Please try again.' },
+  rate_limit: { status: 429, message: 'Codex reported a usage or rate limit. Wait before retrying or check your account usage.' },
+  failed: { status: 503, message: 'Codex could not complete this request. Try again; if it persists, check the CLI in your terminal.' },
+} as const;
+
+type CodexFailureCode = keyof typeof CODEX_FAILURES;
+
+export class CodexChatError extends Error {
+  readonly code: CodexFailureCode;
+
+  constructor(code: CodexFailureCode) {
+    super(CODEX_FAILURES[code].message);
+    this.name = 'CodexChatError';
+    this.code = code;
+  }
+}
+
+export function classifyCodexFailure(error: unknown, stderr = '', aborted = false): CodexChatError {
+  const failure = (typeof error === 'object' && error !== null ? error : {}) as {
+    name?: string; code?: string | number; killed?: boolean; signal?: string;
+  };
+  if (aborted || failure.name === 'AbortError') return new CodexChatError('cancelled');
+  if (failure.code === 'ENOENT') return new CodexChatError('unavailable');
+  if (failure.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER') return new CodexChatError('invalid_output');
+  if (failure.killed && failure.signal === 'SIGKILL') return new CodexChatError('timeout');
+  // Classify known CLI diagnostics in memory; never return or log raw diagnostics.
+  if (/\b429\b|rate.?limit|quota|usage limit/i.test(stderr)) return new CodexChatError('rate_limit');
+  if (/\b401\b|unauthorized|not (?:logged|signed) in|authentication (?:failed|required)|(?:expired|invalid) (?:access |refresh )?token/i.test(stderr)) {
+    return new CodexChatError('auth');
+  }
+  return new CodexChatError('failed');
+}
+
+export function codexErrorResponse(error: unknown) {
+  const failure = error instanceof CodexChatError ? error : new CodexChatError('failed');
+  return {
+    status: CODEX_FAILURES[failure.code].status,
+    body: { error: failure.message, code: `codex_${failure.code}` },
+  };
+}
+
 const replySchema = {
   type: 'object',
   additionalProperties: false,
@@ -37,9 +83,9 @@ const execute: Runner = (args, prompt, { cwd, signal }) => new Promise((resolve,
   }
   const child = execFile(process.env.CODEX_BIN || 'codex', args, {
     cwd, env, signal, timeout: 60_000, killSignal: 'SIGKILL', maxBuffer: 1024 * 1024,
-  }, (error, stdout) => {
+  }, (error, stdout, stderr) => {
     // Never surface stderr, which may include account or provider details.
-    if (error) reject(new Error('Codex could not reply. Check that the current Codex CLI is installed and run codex login in your terminal.'));
+    if (error) reject(classifyCodexFailure(error, stderr, signal?.aborted));
     else resolve(stdout);
   });
   child.stdin?.on('error', () => {});
@@ -47,18 +93,24 @@ const execute: Runner = (args, prompt, { cwd, signal }) => new Promise((resolve,
 });
 
 export function parseCodexReply(output: string): CodexReply {
-  const reply = JSON.parse(output) as Partial<CodexReply> | null;
+  let reply: Partial<CodexReply> | null;
+  try {
+    reply = JSON.parse(output) as Partial<CodexReply> | null;
+  } catch {
+    throw new CodexChatError('invalid_output');
+  }
   if (!reply || typeof reply.text !== 'string' || !reply.text.trim() || reply.text.length > 4000 ||
       !['none', 'queue', 'play'].includes(reply.action || '') ||
       typeof reply.query !== 'string' || reply.query.length > 80 ||
       !Number.isInteger(reply.numberOfTracks) || reply.numberOfTracks! < 1 || reply.numberOfTracks! > 5 ||
       (reply.action !== 'none' && !reply.query.trim())) {
-    throw new Error('Codex returned an invalid music response. Please try again.');
+    throw new CodexChatError('invalid_output');
   }
   return reply as CodexReply;
 }
 
 export async function askCodex(prompt: string, signal?: AbortSignal, run: Runner = execute): Promise<CodexReply> {
+  if (signal?.aborted) throw new CodexChatError('cancelled');
   const directory = await mkdtemp(join(tmpdir(), 'beatz-chat-'));
   try {
     const schemaPath = join(directory, 'reply.schema.json');

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { askCodex } from '@/lib/codex-chat';
+import { askCodex, codexErrorResponse } from '@/lib/codex-chat';
 import { searchTracks } from '@/lib/spotify';
 import { getValidAccessToken } from '@/lib/spotify-auth';
 
@@ -59,10 +59,9 @@ export async function POST(request: NextRequest) {
     let reply;
     try {
       reply = await askCodex(`${INSTRUCTIONS}\n\nListener data:\n${JSON.stringify(context)}`, request.signal);
-    } catch {
-      return NextResponse.json({
-        error: 'Codex could not reply. Check that the current Codex CLI is installed and run codex login in your terminal. Then try again.',
-      }, { status: 503 });
+    } catch (error) {
+      const failure = codexErrorResponse(error);
+      return NextResponse.json(failure.body, { status: failure.status });
     }
     if (reply.action === 'none') return NextResponse.json({ text: reply.text, tracks: [] });
 

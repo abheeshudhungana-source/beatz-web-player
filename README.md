@@ -79,6 +79,11 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 ### Offline adapter checks
 With Node.js 22.18+ (or Node.js 24), run `npm run test:chat`. These tests use a stub runner and make no Codex/Spotify requests. A live local chat still needs verification after signing in.
 
+### Review scope and diagnostic evidence
+The original investigation is preserved in [the chatbot diagnostic report](docs/CHATBOT_DIAGNOSIS.md), with references to the pre-migration revision. [PR #1 scope and acceptance criteria](docs/PR_1_SCOPE.md) distinguish that read-only investigation from the later user-requested local Codex migration and explicitly record the hosted-chat limitation.
+
+Codex failures return sanitized `code` values for missing CLI, authentication diagnostics, timeout, cancellation, invalid output, usage limits, and unknown execution failure. Only recognized authentication diagnostics suggest `codex login`; these categories do not establish credential expiration.
+
 ---
 
 ## ⚠️ Notes on Spotify Web Playback SDK
